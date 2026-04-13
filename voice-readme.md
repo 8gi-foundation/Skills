@@ -174,4 +174,6 @@ Then in Claude Code: `/voice`
 
 This skill came out of building the AI OS for [8gent Jr](https://8gentjr.com) — a free communication tool for nonverbal children — where voice output isn't optional, it's the whole point.
 
-The 8GI Foundation is building AI that runs locally, learns continuously, and works for people who can't afford the paid tier. If that sounds like a mission worth reading about, the [8gent Code repo](https://github.com/8gi-foundation/8gent-code) has a manifesto.
+The 8GI Foundation is building AI that runs locally, learns continuously, and works for people who can't afford the paid tier. If that sounds like a mission worth reading about, start with the [8gent Constitution](https://8gent.world/constitution), then dig into the [8gent-code repo](https://github.com/8gi-foundation/8gent-code).
+
+Built by James Spalding — [@podjamz](https://github.com/podjamz) / [@james__spalding](https://x.com/james__spalding).

@@ -59,9 +59,9 @@ The 8GI Foundation believes AI should be:
 - **Local-first** — your data stays on your machine
 - **Opinionated** — tools that have a point of view are more useful than tools that don't
 
-If that thesis resonates with you, [read the 8gent Code manifesto](https://github.com/8gi-foundation/8gent-code) — it's the kernel of an AI architecture that runs locally, learns continuously, and doesn't need an API key to work.
+If that thesis resonates with you, [read the 8gent Constitution](https://8gent.world/constitution) — it's the governance framework for an AI architecture that runs locally, learns continuously, and doesn't need an API key to work. The code is at [8gent-code](https://github.com/8gi-foundation/8gent-code).
 
-If you want to talk about any of it — the skills, the mission, building AI tools for underserved communities — reach out to James Spalding [@jamesspalding](https://github.com/jamesspalding) or open an issue here.
+If you want to talk about any of it — the skills, the mission, building AI tools for underserved communities — reach out to James Spalding [@podjamz](https://github.com/podjamz) / [@james__spalding](https://x.com/james__spalding) on X, or open an issue here.
 
 ---
 

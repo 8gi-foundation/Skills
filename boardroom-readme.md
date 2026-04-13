@@ -100,4 +100,6 @@ Then in Claude Code: `/boardroom setup`
 
 This skill came out of building [8gent Code](https://github.com/8gi-foundation/8gent-code) — an open-source autonomous coding agent by the 8GI Foundation. The boardroom pattern emerged from running multi-agent sessions where different agents with different mandates produced sharper decisions than any single agent alone.
 
-If you're interested in local-first AI agents, autonomous coding tools, or building AI for communities that can't pay for it — [the 8gent Code repo](https://github.com/8gi-foundation/8gent-code) has a manifesto worth reading.
+If you're interested in local-first AI agents, autonomous coding tools, or building AI for communities that can't pay for it — read the [8gent Constitution](https://8gent.world/constitution) and explore the [8gent-code repo](https://github.com/8gi-foundation/8gent-code).
+
+Built by James Spalding — [@podjamz](https://github.com/podjamz) / [@james__spalding](https://x.com/james__spalding).
