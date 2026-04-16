@@ -14,7 +14,10 @@ No installs. No dependencies. Just better AI sessions.
 |-------|---------|-------------|
 | [`/no-bs`](./no-bs.md) | `no-bs.md` | Forces crisp problem statements, hard constraints, explicit tradeoffs, and GO / NO-GO decisions |
 | [`/boardroom`](./boardroom.md) | `boardroom.md` | Analyzes your patterns and builds a custom advisory board of AI agents around your leadership weaknesses |
-| [`/voice`](./voice.md) | `voice.md` | Gives Claude a spoken voice during sessions — macOS, Windows, and Linux supported |
+| [`/voice`](./voice.md) | `voice.md` | Gives Claude a spoken voice during sessions - macOS, Windows, and Linux supported |
+| [`/github-workflow`](./github-workflow.md) | `github-workflow.md` | End-to-end GitHub process: issues, branches, CI/CD Actions, PR templates, browser testing, preview deploys |
+| [`/voice-signoff`](./voice-signoff.md) | `voice-signoff.md` | Structured sign-off with audible TTS announcements when work completes - chain of custody for every task |
+| [`/context-window`](./context-window.md) | `context-window.md` | Read the Claude Code status bar, understand token budgets, keep sessions sharp past 60% context |
 
 ---
 
@@ -34,6 +37,15 @@ cp boardroom.md ~/.claude/skills/boardroom/SKILL.md
 
 mkdir -p ~/.claude/skills/voice
 cp voice.md ~/.claude/skills/voice/SKILL.md
+
+mkdir -p ~/.claude/skills/github-workflow
+cp github-workflow.md ~/.claude/skills/github-workflow/SKILL.md
+
+mkdir -p ~/.claude/skills/voice-signoff
+cp voice-signoff.md ~/.claude/skills/voice-signoff/SKILL.md
+
+mkdir -p ~/.claude/skills/context-window
+cp context-window.md ~/.claude/skills/context-window/SKILL.md
 ```
 
 Then in Claude Code:
