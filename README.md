@@ -18,6 +18,7 @@ No installs. No dependencies. Just better AI sessions.
 | [`/github-workflow`](./github-workflow.md) | `github-workflow.md` | End-to-end GitHub process: issues, branches, CI/CD Actions, PR templates, browser testing, preview deploys |
 | [`/voice-signoff`](./voice-signoff.md) | `voice-signoff.md` | Structured sign-off with audible TTS announcements when work completes - chain of custody for every task |
 | [`/context-window`](./context-window.md) | `context-window.md` | Read the Claude Code status bar, understand token budgets, keep sessions sharp past 60% context |
+| [`/savetokens`](./savetokens.md) | `savetokens.md` | AST-first code exploration, targeted reads, search optimization, subagent delegation - 10-50x fewer tokens per operation |
 
 ---
 
@@ -46,6 +47,9 @@ cp voice-signoff.md ~/.claude/skills/voice-signoff/SKILL.md
 
 mkdir -p ~/.claude/skills/context-window
 cp context-window.md ~/.claude/skills/context-window/SKILL.md
+
+mkdir -p ~/.claude/skills/savetokens
+cp savetokens.md ~/.claude/skills/savetokens/SKILL.md
 ```
 
 Then in Claude Code:
