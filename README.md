@@ -1,54 +1,49 @@
 # 8GI Skills
 
-> **Prompt engineering skills for Claude Code** — built by the [8GI Foundation](https://github.com/8gi-foundation).
+**What this is:** six markdown capability files for coding-agent harnesses. Each file is a self-contained set of instructions that changes how an agent behaves for the rest of a session.
 
-These are slash-command skills that plug directly into [Claude Code](https://claude.ai/code). Each one is a single markdown file you drop into `~/.claude/skills/` and call from your terminal.
+**Who it is for:** developers running an agent harness that loads skills from a directory as markdown files with YAML frontmatter.
 
-No installs. No dependencies. Just better AI sessions.
+**How to run it:** copy the file you want into your harness's skills directory as `SKILL.md`, then invoke it by name. Full steps below. There is nothing to install and no dependencies.
+
+Built by the [8GI Foundation](https://github.com/8gi-foundation).
 
 ---
 
 ## Skills
 
-| Skill | Install | What It Does |
-|-------|---------|-------------|
-| [`/no-bs`](./no-bs.md) | `no-bs.md` | Forces crisp problem statements, hard constraints, explicit tradeoffs, and GO / NO-GO decisions |
-| [`/boardroom`](./boardroom.md) | `boardroom.md` | Analyzes your patterns and builds a custom advisory board of AI agents around your leadership weaknesses |
-| [`/voice`](./voice.md) | `voice.md` | Gives Claude a spoken voice during sessions - macOS, Windows, and Linux supported |
-| [`/github-workflow`](./github-workflow.md) | `github-workflow.md` | End-to-end GitHub process: issues, branches, CI/CD Actions, PR templates, browser testing, preview deploys |
-| [`/voice-signoff`](./voice-signoff.md) | `voice-signoff.md` | Structured sign-off with audible TTS announcements when work completes - chain of custody for every task |
-| [`/context-window`](./context-window.md) | `context-window.md` | Read the Claude Code status bar, understand token budgets, keep sessions sharp past 60% context |
+| File | Invoked as | What it does |
+|------|-----------|--------------|
+| [`no-bs.md`](./no-bs.md) | `/no-bs` | Forces a crisp problem statement, hard constraints, explicit tradeoffs, and a GO / NO-GO decision |
+| [`boardroom.md`](./boardroom.md) | `/boardroom` | Reads your git history and working patterns, then assembles a set of named advisor agents aimed at the gaps it finds |
+| [`voice.md`](./voice.md) | `/voice` | Speaks task completions, decisions, and warnings aloud using the operating system's built-in TTS |
+| [`github-workflow.md`](./github-workflow.md) | loaded by the agent | Issue-first GitHub loop: issues, branch naming, CI, PR template, browser testing, preview-deploy validation |
+| [`voice-signoff.md`](./voice-signoff.md) | loaded by the agent | Structured sign-off block at the end of a task, plus a spoken summary |
+| [`context-window.md`](./context-window.md) | loaded by the agent | How to read the context indicator, what consumes token budget, and how to keep a long session usable |
+
+The first three carry `user_invocable: true` in their frontmatter, so a harness that supports slash invocation exposes them directly. The other three carry a `description` only and are meant to be pulled in by the agent when the described situation comes up.
+
+Two longer write-ups sit alongside the skills: [`boardroom-readme.md`](./boardroom-readme.md) and [`voice-readme.md`](./voice-readme.md).
 
 ---
 
-## Install Any Skill
+## Install
+
+Set `SKILLS_DIR` to the directory your harness loads skills from, then copy in whichever files you want. Most harnesses expect one directory per skill containing a `SKILL.md`.
 
 ```bash
-# Clone the repo
 git clone https://github.com/8gi-foundation/Skills.git
 cd Skills
 
-# Install a skill (macOS/Linux)
-mkdir -p ~/.claude/skills/no-bs
-cp no-bs.md ~/.claude/skills/no-bs/SKILL.md
+SKILLS_DIR="$HOME/.agents/skills"   # change this to your harness's skills directory
 
-mkdir -p ~/.claude/skills/boardroom
-cp boardroom.md ~/.claude/skills/boardroom/SKILL.md
-
-mkdir -p ~/.claude/skills/voice
-cp voice.md ~/.claude/skills/voice/SKILL.md
-
-mkdir -p ~/.claude/skills/github-workflow
-cp github-workflow.md ~/.claude/skills/github-workflow/SKILL.md
-
-mkdir -p ~/.claude/skills/voice-signoff
-cp voice-signoff.md ~/.claude/skills/voice-signoff/SKILL.md
-
-mkdir -p ~/.claude/skills/context-window
-cp context-window.md ~/.claude/skills/context-window/SKILL.md
+for skill in no-bs boardroom voice github-workflow voice-signoff context-window; do
+  mkdir -p "$SKILLS_DIR/$skill"
+  cp "$skill.md" "$SKILLS_DIR/$skill/SKILL.md"
+done
 ```
 
-Then in Claude Code:
+Then invoke the slash-invocable ones from your session:
 
 ```
 /no-bs should we rewrite the auth layer?
@@ -56,33 +51,34 @@ Then in Claude Code:
 /voice
 ```
 
+If your harness reads skills straight from a flat directory rather than one folder per skill, copy the `.md` files in as they are.
+
 ---
 
-## Why This Exists
+## Why this exists
 
-Claude Code is the most powerful coding tool most engineers have ever touched. But out of the box, it has no opinions. It agrees too easily. It doesn't push back. It forgets what you were trying to do. It speaks in text when it could speak in voice.
+Out of the box, a coding agent has no opinions. It agrees too readily, it does not push back on a weak plan, and it loses the thread of what you were trying to do. These files are the opinionated layer on top: each one states a hard constraint and a required output shape, so the behaviour is repeatable rather than a matter of how you happened to phrase the prompt.
 
-These skills are the opinionated layer on top.
+They came out of building [8gent Jr](https://8gentjr.com), a free AI operating system for neurodivergent children, and [8gent Code](https://github.com/8gi-foundation/8gent-code), an open-source autonomous coding agent.
 
-They came out of building [8gent Jr](https://8gentjr.com) — a free AI operating system for neurodivergent children — and [8gent Code](https://github.com/8gi-foundation/8gent-code), an open-source autonomous coding agent.
+The 8GI Foundation's position is that AI should be:
 
-The 8GI Foundation believes AI should be:
-- **Free by default** — no paywalls to start
-- **Local-first** — your data stays on your machine
-- **Opinionated** — tools that have a point of view are more useful than tools that don't
+- **Free by default.** No paywall to start.
+- **Local-first.** Your data stays on your machine.
+- **Opinionated.** A tool with a point of view is more useful than one without.
 
-If that thesis resonates with you, [read the 8gent Constitution](https://8gent.world/constitution) — it's the governance framework for an AI architecture that runs locally, learns continuously, and doesn't need an API key to work. The code is at [8gent-code](https://github.com/8gi-foundation/8gent-code).
+The governance framework for that architecture is the [8gent Constitution](https://8gent.world/constitution).
 
-If you want to talk about any of it — the skills, the mission, building AI tools for underserved communities — reach out to James Spalding [@podjamz](https://github.com/podjamz) / [@james__spalding](https://x.com/james__spalding) on X, or open an issue here.
+Questions, or want to talk about building tools for underserved communities: open an issue here, or reach James Spalding at [@podjamz](https://github.com/podjamz) on GitHub or [@james__spalding](https://x.com/james__spalding) on X.
 
 ---
 
 ## Contributing
 
-Open a PR. A skill is just a markdown file with a clear name, description, and concrete usage examples. If it makes Claude sharper in your sessions, it'll make Claude sharper in everyone's.
+Open a PR. A skill is one markdown file with YAML frontmatter carrying at least a `name` and a `description`, followed by the instructions themselves. Keep the instructions concrete and include usage examples.
 
 ---
 
 ## License
 
-MIT. Use it, fork it, improve it.
+This repository has no LICENSE file, so no open-source licence is granted. All rights reserved by the 8GI Foundation. If you want to reuse or redistribute any of it, open an issue and ask.
