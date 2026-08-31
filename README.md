@@ -1,6 +1,6 @@
 # 8GI Skills
 
-**What this is:** six markdown capability files for coding-agent harnesses. Each file is a self-contained set of instructions that changes how an agent behaves for the rest of a session.
+**What this is:** seven markdown capability files for coding-agent harnesses. Each file is a self-contained set of instructions that changes how an agent behaves for the rest of a session.
 
 **Who it is for:** developers running an agent harness that loads skills from a directory as markdown files with YAML frontmatter.
 
@@ -16,12 +16,15 @@ Built by the [8GI Foundation](https://github.com/8gi-foundation).
 |------|-----------|--------------|
 | [`no-bs.md`](./no-bs.md) | `/no-bs` | Forces a crisp problem statement, hard constraints, explicit tradeoffs, and a GO / NO-GO decision |
 | [`boardroom.md`](./boardroom.md) | `/boardroom` | Reads your git history and working patterns, then assembles a set of named advisor agents aimed at the gaps it finds |
+| [`billiondollarboardroom.md`](./billiondollarboardroom.md) | `/billiondollarboardroom` | A fixed panel of eight business operators debates a commercial problem through their own frameworks, then converges on ranked recommendations |
 | [`voice.md`](./voice.md) | `/voice` | Speaks task completions, decisions, and warnings aloud using the operating system's built-in TTS |
 | [`github-workflow.md`](./github-workflow.md) | loaded by the agent | Issue-first GitHub loop: issues, branch naming, CI, PR template, browser testing, preview-deploy validation |
 | [`voice-signoff.md`](./voice-signoff.md) | loaded by the agent | Structured sign-off block at the end of a task, plus a spoken summary |
 | [`context-window.md`](./context-window.md) | loaded by the agent | How to read the context indicator, what consumes token budget, and how to keep a long session usable |
 
-The first three carry `user_invocable: true` in their frontmatter, so a harness that supports slash invocation exposes them directly. The other three carry a `description` only and are meant to be pulled in by the agent when the described situation comes up.
+The first four carry `user_invocable: true` in their frontmatter, so a harness that supports slash invocation exposes them directly. The other three carry a `description` only and are meant to be pulled in by the agent when the described situation comes up.
+
+The two boardrooms are different tools. `/boardroom` builds a panel around *your* weaknesses, diagnosed from your own repo history. `/billiondollarboardroom` convenes a fixed panel of eight commercial operators and is aimed at pricing, offers, sales and growth rather than engineering judgement.
 
 Two longer write-ups sit alongside the skills: [`boardroom-readme.md`](./boardroom-readme.md) and [`voice-readme.md`](./voice-readme.md).
 
@@ -37,7 +40,7 @@ cd Skills
 
 SKILLS_DIR="$HOME/.agents/skills"   # change this to your harness's skills directory
 
-for skill in no-bs boardroom voice github-workflow voice-signoff context-window; do
+for skill in no-bs boardroom billiondollarboardroom voice github-workflow voice-signoff context-window; do
   mkdir -p "$SKILLS_DIR/$skill"
   cp "$skill.md" "$SKILLS_DIR/$skill/SKILL.md"
 done
@@ -48,6 +51,7 @@ Then invoke the slash-invocable ones from your session:
 ```
 /no-bs should we rewrite the auth layer?
 /boardroom setup
+/billiondollarboardroom what should we charge for the pilot?
 /voice
 ```
 
