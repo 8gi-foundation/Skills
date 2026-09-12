@@ -25,6 +25,7 @@ flowchart LR
 | `npm run world` | `assets/world-<seed>.json` |
 | `npm run check:art` | Validates every sprite the pack can produce |
 | `npm run check:palette` | Fails on banned colours |
+| `npm run check:assets` | Fails if any sprite's pixels changed |
 
 Scripts are plain `.mjs` and run against the compiled output in `dist/`, so they need no TypeScript
 loader and behave identically in CI and on a laptop.
@@ -110,12 +111,31 @@ anyone noticing until a sprite renders with a seam.
 outfit ramps and the trousers, and fails on anything in the 265 to 335 hue band with real saturation.
 The brand rule is "no purple". This is that rule as code rather than as a comment nobody reads.
 
+**`check:assets`** hashes the decoded pixels of every sprite and compares them to
+`assets/checksums.txt`. This is what turns an unintended art change into a failed build.
+
 ```yaml
 # .github/workflows/ci.yml
 - run: npm run build
 - run: npm run check:palette
 - run: npm run check:art
-- run: npm run preview && git diff --exit-code assets/preview.png
+- run: npm run check:assets
 ```
 
-That last line turns any unintended art change into a failed build.
+Accept an intended change with `node scripts/check-assets.mjs --write` and commit the
+manifest alongside the art.
+
+### Why pixels and not PNG bytes
+
+An earlier version of this guard regenerated the atlases and ran
+`git diff --exit-code assets/`. That is a trap. The exporter compresses with
+`zlib.deflateSync`, so the committed bytes depend on the zlib build behind the running
+Node. Rebuilds are byte identical on one machine, which is exactly what makes the
+problem easy to miss: the guard passes locally and in CI until a Node upgrade changes
+the bundled zlib, and then it fails on a repo where no art changed.
+
+Decoded RGBA has no such dependency. It changes when a pixel changes and at no other
+time. Nudging one palette entry by a single hex digit fails the guard with 31 named
+sprites listed, which is the behaviour you actually want.
+
+PNGs remain a build artefact. Regenerate them with `npm run assets` when the art moves.

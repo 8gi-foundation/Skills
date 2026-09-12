@@ -44,9 +44,8 @@ jobs:
       - name: Art guard (every sprite validates)
         run: node scripts/check-art.mjs
 
-      - name: Assets are up to date
-        run: |
-          node scripts/export-sprites.mjs
-          node scripts/render-preview.mjs --scale 2
-          node scripts/render-sheet.mjs --scale 4
-          git diff --exit-code assets/
+      - name: Art is unchanged
+        # Hashes decoded sprite pixels, not encoded PNG bytes. PNG output depends
+        # on the zlib behind the running Node, so diffing those bytes would turn a
+        # Node upgrade into a red build with no art change behind it.
+        run: node scripts/check-assets.mjs

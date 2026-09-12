@@ -247,7 +247,8 @@ report nothing to anyone. They add life without adding meaning that has to be ke
 | `npm run world -- --seed acme --pods 6` | Generate and save a world as JSON |
 | `npm run check:palette` | Fail the build on banned colours |
 | `npm run check:art` | Validate every sprite the pack can produce |
-| `npm run verify` | Build plus both guards |
+| `npm run check:assets` | Fail if any sprite's pixels changed (run with `--write` to accept) |
+| `npm run verify` | Build plus all three guards |
 
 ---
 

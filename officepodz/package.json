@@ -27,10 +27,11 @@
     "check:palette": "node scripts/check-palette.mjs",
     "check:art": "node scripts/check-art.mjs",
     "demo": "npm run build && node scripts/serve-demo.mjs",
-    "verify": "npm run build && npm run check:palette && npm run check:art",
+    "verify": "npm run build && npm run check:palette && npm run check:art && npm run check:assets",
     "build:react": "tsc -p tsconfig.react.json",
     "preview": "npm run build && node scripts/render-preview.mjs --scale 2",
-    "sheet": "npm run build && node scripts/render-sheet.mjs --scale 4"
+    "sheet": "npm run build && node scripts/render-sheet.mjs --scale 4",
+    "check:assets": "node scripts/check-assets.mjs"
   },
   "keywords": [
     "pixel-art",
