@@ -1,0 +1,129 @@
+{
+  "name": "tiles",
+  "width": 188,
+  "height": 18,
+  "palette": [
+    "#00000000",
+    "#10140f",
+    "#1d241b",
+    "#2b332a",
+    "#3c443d",
+    "#5b655c",
+    "#8a948b",
+    "#b9c1b8",
+    "#eef2ea",
+    "#1f4f2b",
+    "#2d6f3d",
+    "#46a05a",
+    "#8fd49c",
+    "#1c3d6b",
+    "#2f6db5",
+    "#6fa8e6",
+    "#2bb3c4",
+    "#1f7f78",
+    "#8a5a12",
+    "#d9962a",
+    "#f2c96b",
+    "#7a2420",
+    "#c0392b",
+    "#e2705f",
+    "#4a3221",
+    "#7a5433",
+    "#a8794c",
+    "#d9c39a",
+    "#1c5a2a",
+    "#3f8f3a",
+    "#6fc45a",
+    "#24282a"
+  ],
+  "frames": {
+    "tile-void": {
+      "name": "tile-void",
+      "x": 1,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-carpet-green": {
+      "name": "tile-carpet-green",
+      "x": 18,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-carpet-blue": {
+      "name": "tile-carpet-blue",
+      "x": 35,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-carpet-grey": {
+      "name": "tile-carpet-grey",
+      "x": 52,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-wood": {
+      "name": "tile-wood",
+      "x": 69,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-concrete": {
+      "name": "tile-concrete",
+      "x": 86,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-checker": {
+      "name": "tile-checker",
+      "x": 103,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-grass": {
+      "name": "tile-grass",
+      "x": 120,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-wall": {
+      "name": "tile-wall",
+      "x": 137,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-wall-glass": {
+      "name": "tile-wall-glass",
+      "x": 154,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "tile-wall-brick": {
+      "name": "tile-wall-brick",
+      "x": 171,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    }
+  }
+}

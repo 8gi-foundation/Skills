@@ -1,0 +1,281 @@
+{
+  "name": "pets",
+  "width": 188,
+  "height": 52,
+  "palette": [
+    "#00000000",
+    "#10140f",
+    "#1d241b",
+    "#2b332a",
+    "#3c443d",
+    "#5b655c",
+    "#8a948b",
+    "#b9c1b8",
+    "#eef2ea",
+    "#1f4f2b",
+    "#2d6f3d",
+    "#46a05a",
+    "#8fd49c",
+    "#1c3d6b",
+    "#2f6db5",
+    "#6fa8e6",
+    "#2bb3c4",
+    "#1f7f78",
+    "#8a5a12",
+    "#d9962a",
+    "#f2c96b",
+    "#7a2420",
+    "#c0392b",
+    "#e2705f",
+    "#4a3221",
+    "#7a5433",
+    "#a8794c",
+    "#d9c39a",
+    "#1c5a2a",
+    "#3f8f3a",
+    "#6fc45a",
+    "#24282a"
+  ],
+  "frames": {
+    "pet-cat-east-stand": {
+      "name": "pet-cat-east-stand",
+      "x": 1,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-cat-west-stand": {
+      "name": "pet-cat-west-stand",
+      "x": 18,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-cat-east-step": {
+      "name": "pet-cat-east-step",
+      "x": 35,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-cat-west-step": {
+      "name": "pet-cat-west-step",
+      "x": 52,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-cat-east-sleep": {
+      "name": "pet-cat-east-sleep",
+      "x": 69,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-cat-west-sleep": {
+      "name": "pet-cat-west-sleep",
+      "x": 86,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-dog-east-stand": {
+      "name": "pet-dog-east-stand",
+      "x": 103,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-dog-west-stand": {
+      "name": "pet-dog-west-stand",
+      "x": 120,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-dog-east-step": {
+      "name": "pet-dog-east-step",
+      "x": 137,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-dog-west-step": {
+      "name": "pet-dog-west-step",
+      "x": 154,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-dog-east-sleep": {
+      "name": "pet-dog-east-sleep",
+      "x": 171,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-dog-west-sleep": {
+      "name": "pet-dog-west-sleep",
+      "x": 1,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-bird-east-stand": {
+      "name": "pet-bird-east-stand",
+      "x": 18,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-bird-west-stand": {
+      "name": "pet-bird-west-stand",
+      "x": 35,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-bird-east-step": {
+      "name": "pet-bird-east-step",
+      "x": 52,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-bird-west-step": {
+      "name": "pet-bird-west-step",
+      "x": 69,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-bird-east-sleep": {
+      "name": "pet-bird-east-sleep",
+      "x": 86,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-bird-west-sleep": {
+      "name": "pet-bird-west-sleep",
+      "x": 103,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-robot-east-stand": {
+      "name": "pet-robot-east-stand",
+      "x": 120,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-robot-west-stand": {
+      "name": "pet-robot-west-stand",
+      "x": 137,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-robot-east-step": {
+      "name": "pet-robot-east-step",
+      "x": 154,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-robot-west-step": {
+      "name": "pet-robot-west-step",
+      "x": 171,
+      "y": 18,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-robot-east-sleep": {
+      "name": "pet-robot-east-sleep",
+      "x": 1,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-robot-west-sleep": {
+      "name": "pet-robot-west-sleep",
+      "x": 18,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-plantpal-east-stand": {
+      "name": "pet-plantpal-east-stand",
+      "x": 35,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-plantpal-west-stand": {
+      "name": "pet-plantpal-west-stand",
+      "x": 52,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-plantpal-east-step": {
+      "name": "pet-plantpal-east-step",
+      "x": 69,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-plantpal-west-step": {
+      "name": "pet-plantpal-west-step",
+      "x": 86,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-plantpal-east-sleep": {
+      "name": "pet-plantpal-east-sleep",
+      "x": 103,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    },
+    "pet-plantpal-west-sleep": {
+      "name": "pet-plantpal-west-sleep",
+      "x": 120,
+      "y": 35,
+      "w": 16,
+      "h": 16,
+      "originY": 16
+    }
+  }
+}

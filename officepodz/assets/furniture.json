@@ -1,0 +1,209 @@
+{
+  "name": "furniture",
+  "width": 251,
+  "height": 73,
+  "palette": [
+    "#00000000",
+    "#10140f",
+    "#1d241b",
+    "#2b332a",
+    "#3c443d",
+    "#5b655c",
+    "#8a948b",
+    "#b9c1b8",
+    "#eef2ea",
+    "#1f4f2b",
+    "#2d6f3d",
+    "#46a05a",
+    "#8fd49c",
+    "#1c3d6b",
+    "#2f6db5",
+    "#6fa8e6",
+    "#2bb3c4",
+    "#1f7f78",
+    "#8a5a12",
+    "#d9962a",
+    "#f2c96b",
+    "#7a2420",
+    "#c0392b",
+    "#e2705f",
+    "#4a3221",
+    "#7a5433",
+    "#a8794c",
+    "#d9c39a",
+    "#1c5a2a",
+    "#3f8f3a",
+    "#6fc45a",
+    "#24282a"
+  ],
+  "frames": {
+    "furniture-desk": {
+      "name": "furniture-desk",
+      "x": 1,
+      "y": 1,
+      "w": 32,
+      "h": 26,
+      "originY": 10
+    },
+    "furniture-chair": {
+      "name": "furniture-chair",
+      "x": 34,
+      "y": 1,
+      "w": 16,
+      "h": 20,
+      "originY": 4
+    },
+    "furniture-meeting-table": {
+      "name": "furniture-meeting-table",
+      "x": 51,
+      "y": 1,
+      "w": 48,
+      "h": 38,
+      "originY": 6
+    },
+    "furniture-sofa": {
+      "name": "furniture-sofa",
+      "x": 100,
+      "y": 1,
+      "w": 32,
+      "h": 22,
+      "originY": 6
+    },
+    "furniture-armchair": {
+      "name": "furniture-armchair",
+      "x": 133,
+      "y": 1,
+      "w": 16,
+      "h": 20,
+      "originY": 4
+    },
+    "furniture-coffee-table": {
+      "name": "furniture-coffee-table",
+      "x": 150,
+      "y": 1,
+      "w": 16,
+      "h": 16,
+      "originY": 0
+    },
+    "furniture-plant-small": {
+      "name": "furniture-plant-small",
+      "x": 167,
+      "y": 1,
+      "w": 16,
+      "h": 18,
+      "originY": 2
+    },
+    "furniture-plant-tall": {
+      "name": "furniture-plant-tall",
+      "x": 184,
+      "y": 1,
+      "w": 16,
+      "h": 30,
+      "originY": 14
+    },
+    "furniture-bookshelf": {
+      "name": "furniture-bookshelf",
+      "x": 201,
+      "y": 1,
+      "w": 16,
+      "h": 32,
+      "originY": 16
+    },
+    "furniture-whiteboard": {
+      "name": "furniture-whiteboard",
+      "x": 218,
+      "y": 1,
+      "w": 32,
+      "h": 28,
+      "originY": 12
+    },
+    "furniture-server-rack": {
+      "name": "furniture-server-rack",
+      "x": 1,
+      "y": 40,
+      "w": 16,
+      "h": 30,
+      "originY": 14
+    },
+    "furniture-water-cooler": {
+      "name": "furniture-water-cooler",
+      "x": 18,
+      "y": 40,
+      "w": 16,
+      "h": 24,
+      "originY": 8
+    },
+    "furniture-coffee-machine": {
+      "name": "furniture-coffee-machine",
+      "x": 35,
+      "y": 40,
+      "w": 16,
+      "h": 22,
+      "originY": 6
+    },
+    "furniture-fridge": {
+      "name": "furniture-fridge",
+      "x": 52,
+      "y": 40,
+      "w": 16,
+      "h": 28,
+      "originY": 12
+    },
+    "furniture-rug": {
+      "name": "furniture-rug",
+      "x": 69,
+      "y": 40,
+      "w": 32,
+      "h": 32,
+      "originY": 0
+    },
+    "furniture-floor-lamp": {
+      "name": "furniture-floor-lamp",
+      "x": 102,
+      "y": 40,
+      "w": 16,
+      "h": 30,
+      "originY": 14
+    },
+    "furniture-pet-bed": {
+      "name": "furniture-pet-bed",
+      "x": 119,
+      "y": 40,
+      "w": 16,
+      "h": 12,
+      "originY": -4
+    },
+    "furniture-pet-bowl": {
+      "name": "furniture-pet-bowl",
+      "x": 136,
+      "y": 40,
+      "w": 16,
+      "h": 10,
+      "originY": -6
+    },
+    "furniture-arcade": {
+      "name": "furniture-arcade",
+      "x": 153,
+      "y": 40,
+      "w": 16,
+      "h": 30,
+      "originY": 14
+    },
+    "furniture-door": {
+      "name": "furniture-door",
+      "x": 170,
+      "y": 40,
+      "w": 16,
+      "h": 16,
+      "originY": 0
+    },
+    "furniture-window": {
+      "name": "furniture-window",
+      "x": 187,
+      "y": 40,
+      "w": 16,
+      "h": 16,
+      "originY": 0
+    }
+  }
+}

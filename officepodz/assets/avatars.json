@@ -1,0 +1,1065 @@
+{
+  "name": "avatars",
+  "width": 256,
+  "height": 208,
+  "palette": [
+    "#00000000",
+    "#10140f",
+    "#1d241b",
+    "#2b332a",
+    "#3c443d",
+    "#5b655c",
+    "#8a948b",
+    "#b9c1b8",
+    "#eef2ea",
+    "#1f4f2b",
+    "#2d6f3d",
+    "#46a05a",
+    "#8fd49c",
+    "#1c3d6b",
+    "#2f6db5",
+    "#6fa8e6",
+    "#2bb3c4",
+    "#1f7f78",
+    "#8a5a12",
+    "#d9962a",
+    "#f2c96b",
+    "#7a2420",
+    "#c0392b",
+    "#e2705f",
+    "#4a3221",
+    "#7a5433",
+    "#a8794c",
+    "#d9c39a",
+    "#1c5a2a",
+    "#3f8f3a",
+    "#6fc45a",
+    "#24282a"
+  ],
+  "frames": {
+    "donna-south-stand": {
+      "name": "donna-south-stand",
+      "x": 1,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-south-stepA": {
+      "name": "donna-south-stepA",
+      "x": 18,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-south-stepB": {
+      "name": "donna-south-stepB",
+      "x": 35,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-south-sit": {
+      "name": "donna-south-sit",
+      "x": 52,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-north-stand": {
+      "name": "donna-north-stand",
+      "x": 69,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-north-stepA": {
+      "name": "donna-north-stepA",
+      "x": 86,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-north-stepB": {
+      "name": "donna-north-stepB",
+      "x": 103,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-north-sit": {
+      "name": "donna-north-sit",
+      "x": 120,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-east-stand": {
+      "name": "donna-east-stand",
+      "x": 137,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-east-stepA": {
+      "name": "donna-east-stepA",
+      "x": 154,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-east-stepB": {
+      "name": "donna-east-stepB",
+      "x": 171,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-east-sit": {
+      "name": "donna-east-sit",
+      "x": 188,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-west-stand": {
+      "name": "donna-west-stand",
+      "x": 205,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-west-stepA": {
+      "name": "donna-west-stepA",
+      "x": 222,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-west-stepB": {
+      "name": "donna-west-stepB",
+      "x": 239,
+      "y": 1,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "donna-west-sit": {
+      "name": "donna-west-sit",
+      "x": 1,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-south-stand": {
+      "name": "winston-south-stand",
+      "x": 18,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-south-stepA": {
+      "name": "winston-south-stepA",
+      "x": 35,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-south-stepB": {
+      "name": "winston-south-stepB",
+      "x": 52,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-south-sit": {
+      "name": "winston-south-sit",
+      "x": 69,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-north-stand": {
+      "name": "winston-north-stand",
+      "x": 86,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-north-stepA": {
+      "name": "winston-north-stepA",
+      "x": 103,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-north-stepB": {
+      "name": "winston-north-stepB",
+      "x": 120,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-north-sit": {
+      "name": "winston-north-sit",
+      "x": 137,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-east-stand": {
+      "name": "winston-east-stand",
+      "x": 154,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-east-stepA": {
+      "name": "winston-east-stepA",
+      "x": 171,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-east-stepB": {
+      "name": "winston-east-stepB",
+      "x": 188,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-east-sit": {
+      "name": "winston-east-sit",
+      "x": 205,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-west-stand": {
+      "name": "winston-west-stand",
+      "x": 222,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-west-stepA": {
+      "name": "winston-west-stepA",
+      "x": 239,
+      "y": 24,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-west-stepB": {
+      "name": "winston-west-stepB",
+      "x": 1,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "winston-west-sit": {
+      "name": "winston-west-sit",
+      "x": 18,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-south-stand": {
+      "name": "john-south-stand",
+      "x": 35,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-south-stepA": {
+      "name": "john-south-stepA",
+      "x": 52,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-south-stepB": {
+      "name": "john-south-stepB",
+      "x": 69,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-south-sit": {
+      "name": "john-south-sit",
+      "x": 86,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-north-stand": {
+      "name": "john-north-stand",
+      "x": 103,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-north-stepA": {
+      "name": "john-north-stepA",
+      "x": 120,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-north-stepB": {
+      "name": "john-north-stepB",
+      "x": 137,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-north-sit": {
+      "name": "john-north-sit",
+      "x": 154,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-east-stand": {
+      "name": "john-east-stand",
+      "x": 171,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-east-stepA": {
+      "name": "john-east-stepA",
+      "x": 188,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-east-stepB": {
+      "name": "john-east-stepB",
+      "x": 205,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-east-sit": {
+      "name": "john-east-sit",
+      "x": 222,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-west-stand": {
+      "name": "john-west-stand",
+      "x": 239,
+      "y": 47,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-west-stepA": {
+      "name": "john-west-stepA",
+      "x": 1,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-west-stepB": {
+      "name": "john-west-stepB",
+      "x": 18,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "john-west-sit": {
+      "name": "john-west-sit",
+      "x": 35,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-south-stand": {
+      "name": "mary-south-stand",
+      "x": 52,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-south-stepA": {
+      "name": "mary-south-stepA",
+      "x": 69,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-south-stepB": {
+      "name": "mary-south-stepB",
+      "x": 86,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-south-sit": {
+      "name": "mary-south-sit",
+      "x": 103,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-north-stand": {
+      "name": "mary-north-stand",
+      "x": 120,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-north-stepA": {
+      "name": "mary-north-stepA",
+      "x": 137,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-north-stepB": {
+      "name": "mary-north-stepB",
+      "x": 154,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-north-sit": {
+      "name": "mary-north-sit",
+      "x": 171,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-east-stand": {
+      "name": "mary-east-stand",
+      "x": 188,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-east-stepA": {
+      "name": "mary-east-stepA",
+      "x": 205,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-east-stepB": {
+      "name": "mary-east-stepB",
+      "x": 222,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-east-sit": {
+      "name": "mary-east-sit",
+      "x": 239,
+      "y": 70,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-west-stand": {
+      "name": "mary-west-stand",
+      "x": 1,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-west-stepA": {
+      "name": "mary-west-stepA",
+      "x": 18,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-west-stepB": {
+      "name": "mary-west-stepB",
+      "x": 35,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "mary-west-sit": {
+      "name": "mary-west-sit",
+      "x": 52,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-south-stand": {
+      "name": "sage-south-stand",
+      "x": 69,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-south-stepA": {
+      "name": "sage-south-stepA",
+      "x": 86,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-south-stepB": {
+      "name": "sage-south-stepB",
+      "x": 103,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-south-sit": {
+      "name": "sage-south-sit",
+      "x": 120,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-north-stand": {
+      "name": "sage-north-stand",
+      "x": 137,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-north-stepA": {
+      "name": "sage-north-stepA",
+      "x": 154,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-north-stepB": {
+      "name": "sage-north-stepB",
+      "x": 171,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-north-sit": {
+      "name": "sage-north-sit",
+      "x": 188,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-east-stand": {
+      "name": "sage-east-stand",
+      "x": 205,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-east-stepA": {
+      "name": "sage-east-stepA",
+      "x": 222,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-east-stepB": {
+      "name": "sage-east-stepB",
+      "x": 239,
+      "y": 93,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-east-sit": {
+      "name": "sage-east-sit",
+      "x": 1,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-west-stand": {
+      "name": "sage-west-stand",
+      "x": 18,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-west-stepA": {
+      "name": "sage-west-stepA",
+      "x": 35,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-west-stepB": {
+      "name": "sage-west-stepB",
+      "x": 52,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "sage-west-sit": {
+      "name": "sage-west-sit",
+      "x": 69,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-south-stand": {
+      "name": "operator-south-stand",
+      "x": 86,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-south-stepA": {
+      "name": "operator-south-stepA",
+      "x": 103,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-south-stepB": {
+      "name": "operator-south-stepB",
+      "x": 120,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-south-sit": {
+      "name": "operator-south-sit",
+      "x": 137,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-north-stand": {
+      "name": "operator-north-stand",
+      "x": 154,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-north-stepA": {
+      "name": "operator-north-stepA",
+      "x": 171,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-north-stepB": {
+      "name": "operator-north-stepB",
+      "x": 188,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-north-sit": {
+      "name": "operator-north-sit",
+      "x": 205,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-east-stand": {
+      "name": "operator-east-stand",
+      "x": 222,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-east-stepA": {
+      "name": "operator-east-stepA",
+      "x": 239,
+      "y": 116,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-east-stepB": {
+      "name": "operator-east-stepB",
+      "x": 1,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-east-sit": {
+      "name": "operator-east-sit",
+      "x": 18,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-west-stand": {
+      "name": "operator-west-stand",
+      "x": 35,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-west-stepA": {
+      "name": "operator-west-stepA",
+      "x": 52,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-west-stepB": {
+      "name": "operator-west-stepB",
+      "x": 69,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "operator-west-sit": {
+      "name": "operator-west-sit",
+      "x": 86,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-south-stand": {
+      "name": "chef-south-stand",
+      "x": 103,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-south-stepA": {
+      "name": "chef-south-stepA",
+      "x": 120,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-south-stepB": {
+      "name": "chef-south-stepB",
+      "x": 137,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-south-sit": {
+      "name": "chef-south-sit",
+      "x": 154,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-north-stand": {
+      "name": "chef-north-stand",
+      "x": 171,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-north-stepA": {
+      "name": "chef-north-stepA",
+      "x": 188,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-north-stepB": {
+      "name": "chef-north-stepB",
+      "x": 205,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-north-sit": {
+      "name": "chef-north-sit",
+      "x": 222,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-east-stand": {
+      "name": "chef-east-stand",
+      "x": 239,
+      "y": 139,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-east-stepA": {
+      "name": "chef-east-stepA",
+      "x": 1,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-east-stepB": {
+      "name": "chef-east-stepB",
+      "x": 18,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-east-sit": {
+      "name": "chef-east-sit",
+      "x": 35,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-west-stand": {
+      "name": "chef-west-stand",
+      "x": 52,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-west-stepA": {
+      "name": "chef-west-stepA",
+      "x": 69,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-west-stepB": {
+      "name": "chef-west-stepB",
+      "x": 86,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "chef-west-sit": {
+      "name": "chef-west-sit",
+      "x": 103,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-south-stand": {
+      "name": "buyer-south-stand",
+      "x": 120,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-south-stepA": {
+      "name": "buyer-south-stepA",
+      "x": 137,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-south-stepB": {
+      "name": "buyer-south-stepB",
+      "x": 154,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-south-sit": {
+      "name": "buyer-south-sit",
+      "x": 171,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-north-stand": {
+      "name": "buyer-north-stand",
+      "x": 188,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-north-stepA": {
+      "name": "buyer-north-stepA",
+      "x": 205,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-north-stepB": {
+      "name": "buyer-north-stepB",
+      "x": 222,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-north-sit": {
+      "name": "buyer-north-sit",
+      "x": 239,
+      "y": 162,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-east-stand": {
+      "name": "buyer-east-stand",
+      "x": 1,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-east-stepA": {
+      "name": "buyer-east-stepA",
+      "x": 18,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-east-stepB": {
+      "name": "buyer-east-stepB",
+      "x": 35,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-east-sit": {
+      "name": "buyer-east-sit",
+      "x": 52,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-west-stand": {
+      "name": "buyer-west-stand",
+      "x": 69,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-west-stepA": {
+      "name": "buyer-west-stepA",
+      "x": 86,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-west-stepB": {
+      "name": "buyer-west-stepB",
+      "x": 103,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    },
+    "buyer-west-sit": {
+      "name": "buyer-west-sit",
+      "x": 120,
+      "y": 185,
+      "w": 16,
+      "h": 22,
+      "originY": 22
+    }
+  }
+}

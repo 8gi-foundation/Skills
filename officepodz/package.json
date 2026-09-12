@@ -1,0 +1,63 @@
+{
+  "name": "@officepodz/core",
+  "version": "0.1.0",
+  "description": "OfficePodz: a drop-in pixel-art office world for work operating systems. Sprites, tiles, furniture, pets, avatars, pathfinding and presence for humans and AI agents.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./react": "./dist/src/react/index.js",
+    "./assets/*": "./assets/*"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "docs",
+    "README.md",
+    "ARCHITECTURE.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "assets": "npm run build && node scripts/export-sprites.mjs",
+    "world": "npm run build && node scripts/export-world.mjs",
+    "check:palette": "node scripts/check-palette.mjs",
+    "check:art": "node scripts/check-art.mjs",
+    "demo": "npm run build && node scripts/serve-demo.mjs",
+    "verify": "npm run build && npm run check:palette && npm run check:art",
+    "build:react": "tsc -p tsconfig.react.json",
+    "preview": "npm run build && node scripts/render-preview.mjs --scale 2",
+    "sheet": "npm run build && node scripts/render-sheet.mjs --scale 4"
+  },
+  "keywords": [
+    "pixel-art",
+    "virtual-office",
+    "metaverse",
+    "sprites",
+    "tilemap",
+    "multiplayer",
+    "agents",
+    "gather",
+    "workspace",
+    "canvas"
+  ],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false
+}

@@ -1,0 +1,52 @@
+# CI for the OfficePodz package.
+#
+# Lives at the repository root because GitHub only runs workflows from
+# .github/workflows/ there, and is scoped by working-directory and paths so it
+# only fires on changes to officepodz/. The rest of this repository is
+# markdown and has no build step.
+#
+# There is nothing to install: the package has no runtime or build
+# dependencies beyond TypeScript.
+name: officepodz-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'officepodz/**'
+      - '.github/workflows/officepodz-ci.yml'
+  pull_request:
+    paths:
+      - 'officepodz/**'
+      - '.github/workflows/officepodz-ci.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: officepodz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install TypeScript
+        run: npm install --no-save typescript@5
+
+      - name: Build
+        run: npx tsc -p tsconfig.json
+
+      - name: Palette guard (no purple)
+        run: node scripts/check-palette.mjs
+
+      - name: Art guard (every sprite validates)
+        run: node scripts/check-art.mjs
+
+      - name: Assets are up to date
+        run: |
+          node scripts/export-sprites.mjs
+          node scripts/render-preview.mjs --scale 2
+          node scripts/render-sheet.mjs --scale 4
+          git diff --exit-code assets/

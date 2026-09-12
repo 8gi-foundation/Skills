@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>OfficePodz demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #10140f;
+        --panel: #1d241b;
+        --line: #2b332a;
+        --text: #eef2ea;
+        --muted: #8a948b;
+        --brand: #46a05a;
+        --agent: #6fa8e6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--ink);
+        color: var(--text);
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        display: grid;
+        grid-template-columns: 1fr 260px;
+        height: 100dvh;
+      }
+      #stage { width: 100%; height: 100%; display: block; image-rendering: pixelated; touch-action: none; }
+      main { position: relative; min-width: 0; }
+      .hud {
+        position: absolute; top: 12px; left: 12px;
+        background: rgba(16, 20, 15, 0.82);
+        border: 1px solid var(--line);
+        padding: 6px 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 11px;
+      }
+      .hud b { color: var(--brand); }
+      aside {
+        border-left: 1px solid var(--line);
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      aside h2 {
+        margin: 0;
+        padding: 10px 12px;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+      }
+      ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+      .roster-item {
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--line);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .roster-item:hover { background: #232b21; }
+      .roster-item span { color: var(--muted); font-size: 11px; }
+      .kind-agent b { color: var(--agent); }
+      .kind-pet { opacity: 0.72; }
+      #log { flex: 1; font-size: 11px; color: var(--muted); padding: 6px 0; }
+      #log li { padding: 2px 12px; }
+      .controls { padding: 10px 12px; display: grid; gap: 6px; border-top: 1px solid var(--line); }
+      button, select, input {
+        font: inherit;
+        background: #232b21;
+        color: var(--text);
+        border: 1px solid var(--line);
+        padding: 6px 8px;
+        border-radius: 0;
+      }
+      button { cursor: pointer; text-align: left; }
+      button:hover { border-color: var(--brand); }
+      button.active { border-color: var(--brand); color: var(--brand); }
+      #chat { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+      #chat-input { flex: 1; min-width: 0; }
+      .keys { padding: 8px 12px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--line); }
+      @media (max-width: 720px) {
+        body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+        aside { border-left: 0; border-top: 1px solid var(--line); max-height: 45dvh; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <canvas id="stage"></canvas>
+      <div class="hud">Room: <b id="zone">Main Corridor</b></div>
+    </main>
+    <aside>
+      <h2>Occupants</h2>
+      <ul id="roster"></ul>
+      <div class="controls">
+        <button id="summon" type="button">Summon all to standup</button>
+        <button id="disperse" type="button">Back to desks</button>
+        <button id="build-toggle" type="button">Build: off</button>
+        <select id="build-kind" aria-label="Furniture to place"></select>
+      </div>
+      <h2>Activity</h2>
+      <ul id="log"></ul>
+      <form id="chat">
+        <input id="chat-input" placeholder="Say something" autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+      <p class="keys">WASD or arrows to walk. E to use what you are standing next to. Click a tile to path there. Add ?room=hq to the URL and open a second tab to test multiplayer.</p>
+    </aside>
+    <script type="module" src="../../dist/examples/vanilla/main.js"></script>
+  </body>
+</html>

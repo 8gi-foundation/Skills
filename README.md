@@ -1,6 +1,6 @@
 # 8GI Skills
 
-**What this is:** seven markdown capability files for coding-agent harnesses. Each file is a self-contained set of instructions that changes how an agent behaves for the rest of a session.
+**What this is:** seven markdown capability files for coding-agent harnesses, plus one drop-in package. Each markdown file is a self-contained set of instructions that changes how an agent behaves for the rest of a session.
 
 **Who it is for:** developers running an agent harness that loads skills from a directory as markdown files with YAML frontmatter.
 
@@ -27,6 +27,16 @@ The first four carry `user_invocable: true` in their frontmatter, so a harness t
 The two boardrooms are different tools. `/boardroom` builds a panel around *your* weaknesses, diagnosed from your own repo history. `/billiondollarboardroom` convenes a fixed panel of eight commercial operators and is aimed at pricing, offers, sales and growth rather than engineering judgement.
 
 Two longer write-ups sit alongside the skills: [`boardroom-readme.md`](./boardroom-readme.md) and [`voice-readme.md`](./voice-readme.md).
+
+---
+
+## Packages
+
+| Folder | What it is |
+|--------|-----------|
+| [`officepodz/`](./officepodz) | A drop-in pixel-art office world for a work operating system: avatars, furniture, pets, tile maps, A* pathfinding and presence for humans and AI agents. TypeScript, no runtime dependencies. |
+
+OfficePodz is not a markdown skill and is not copied into a skills directory. It is a package you import. Reach for it when a work OS needs a spatial surface rather than another list of names: rendering who is present and where, walking an avatar or an agent to a desk, placing furniture, or giving a long-running agent a visible body in a room. Its own [README](./officepodz/README.md) and [ARCHITECTURE](./officepodz/ARCHITECTURE.md) cover integration, the sprite spec and the world format.
 
 ---
 
