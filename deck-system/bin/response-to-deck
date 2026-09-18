@@ -1,0 +1,1632 @@
+#!/usr/bin/env bun
+/**
+ * response-to-deck - turn a markdown response into a narrated MP4.
+ *
+ * James does not read walls of text. He watches decks. This renders an
+ * arbitrary markdown response into the 8GI deck convention
+ * (`<div class="slide" data-slide="N" data-voice="X" data-voiceover="...">`)
+ * and hands it to the deck pipeline that already works:
+ *
+ *   deck2video.py <deck.html> --out NAME --tts supertonic
+ *
+ * Structure maps to slides:
+ *   h1/h2/h3        -> a slide title (h3 keeps its parent h2 as the kicker)
+ *   **Bold lead:**  -> a numbered point with a subtitle
+ *   - bullet        -> a bulleted line
+ *   | table |       -> a table slide
+ *   ```code```      -> a code slide
+ *   SIGN-OFF:       -> the closing manifest slide
+ *
+ * Narration per slide is that slide's own prose, punctuation-normalised so the
+ * voice never reads "->" or "#551" or a 90-character absolute path aloud.
+ *
+ * Usage:
+ *   response-to-deck --file resp.md [--out NAME] [--title "..."] [--no-send] [--no-open]
+ *   cat resp.md | response-to-deck
+ *   response-to-deck --file resp.md --gate-only    # exit 0 = earns a deck
+ *   response-to-deck --file resp.md --plan         # print the slide plan, render nothing
+ *
+ * The finished MP4 is opened on this machine by default, because a deck he has
+ * to go looking for is a deck he does not watch. Pass --no-open for batch runs.
+ *
+ * Everything is local. Narration is Supertonic on this machine. No cloud key.
+ */
+
+import { spawnSync, spawn } from "child_process"
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from "fs"
+import { join } from "path"
+
+const HOME = process.env.HOME || ""
+const CREATIVE = join(HOME, ".8gent/creative")
+const DECK2VIDEO = process.env.DECK2VIDEO || join(HOME, ".claude/bin/deck2video.py")
+const SEND_DOC = join(HOME, ".claude/bin/send-telegram-document")
+const ENV_FILE = join(HOME, ".claude/.env")
+const LOG = join(HOME, ".claude/hooks/.response-deck.log")
+
+// ---------------------------------------------------------------- voices
+// Officer -> a voice name deck2video maps to a distinct Supertonic style.
+// All eight are genuinely installed macOS voices, so the `say` fallback inside
+// deck2video also stays distinct. Mirrors the Voice Contract; does not own it.
+type Officer = "James" | "Rishi" | "Samantha" | "Moira" | "Karen" | "Luis" | "Zara" | "Solomon"
+
+const DECK_VOICE_BY_OFFICER: Record<Officer, string> = {
+  James: "Daniel",    // Supertonic M2
+  Rishi: "Rishi",     // M3
+  Samantha: "Samantha", // F1
+  Moira: "Moira",     // F2
+  Karen: "Karen",     // F3
+  Zara: "Tessa",      // F4
+  Luis: "Reed",       // M4
+  Solomon: "Grandpa", // M5
+}
+
+const LEGACY_VOICE_ALIASES: Record<string, Officer> = {
+  Ava: "James", Zarvox: "Zara", Alex: "Solomon", Diego: "Luis",
+  Oliver: "Rishi", Tessa: "Zara", Albert: "Solomon", Xander: "Luis",
+}
+
+/** Same declared-identity rule as the Voice Contract: never inferred. */
+function pickOfficer(response: string): Officer {
+  const m = response.match(/VOICE:\s*say\s+-v\s+(\w+)/) ?? response.match(/\bVOICE:\s*(\w+)/)
+  if (m) {
+    const cap = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()
+    if (cap in DECK_VOICE_BY_OFFICER) return cap as Officer
+    if (cap in LEGACY_VOICE_ALIASES) return LEGACY_VOICE_ALIASES[cap]
+  }
+  return "James"
+}
+
+// ------------------------------------------------------------- narration
+/**
+ * Turn written markdown into something a TTS voice can say without embarrassing
+ * itself. The failure this exists to prevent: the voice reading "dash dash"
+ * for a rule, "hash five five one" for an issue, or a full absolute path
+ * one character at a time.
+ */
+function speakable(raw: string): string {
+  let t = raw
+
+  // Fenced/inline code and links first, before symbol substitution.
+  t = t.replace(/```[\s\S]*?```/g, " ")
+  t = t.replace(/`([^`]*)`/g, "$1")
+  t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+  t = t.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+  t = t.replace(/https?:\/\/\S+/g, " ")
+
+  // Absolute and relative paths: say the last segment as words, not the tree.
+  t = t.replace(/(?:~|\.{0,2})?\/[\w.\-\/]{4,}/g, (p) => {
+    const seg = p.split("/").filter(Boolean).pop() || ""
+    return " " + seg.replace(/\.[a-z0-9]{1,4}$/i, "").replace(/[-_.]+/g, " ") + " "
+  })
+
+  // Markdown emphasis and structure markers.
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "")
+  t = t.replace(/\*\*([^*]+)\*\*/g, "$1")
+  t = t.replace(/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, "$1$2")
+  t = t.replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, "$1$2")
+  t = t.replace(/^\s*[-*+]\s+/gm, "")
+  t = t.replace(/^\s*>\s?/gm, "")
+
+  // Symbols the voice must not read literally.
+  t = t.replace(/[—–]/g, ", ")     // em/en dash -> comma (also the house rule)
+  t = t.replace(/-{2,}/g, ", ")
+  t = t.replace(/(->|=>|→)/g, " to ")
+  t = t.replace(/#(\d+)/g, " number $1")
+  t = t.replace(/(\d)\s*%/g, "$1 percent")
+  t = t.replace(/\s&\s/g, " and ")
+  t = t.replace(/\s\+\s/g, " plus ")
+  t = t.replace(/\s=\s/g, " equals ")
+  t = t.replace(/\s~\s?(\d)/g, " about $1")
+  t = t.replace(/\s\|\s/g, ", ")
+  t = t.replace(/\bv(\d+\.\d+[\d.]*)/g, "version $1")
+
+  // Anything non-speech (emoji, box drawing, stray punctuation) goes.
+  t = t.replace(/[^\x20-\x7E\n]/g, " ")
+  t = t.replace(/[*_`~^|\\<>{}\[\]#@$]/g, " ")
+  t = t.replace(/\s*\n\s*/g, ". ")
+  t = t.replace(/\s{2,}/g, " ")
+  t = t.replace(/\s+([.,;:!?])/g, "$1")
+  t = t.replace(/\.{2,}/g, ".")
+  t = t.replace(/:\s*\./g, ".")
+  t = t.replace(/(\.\s*){2,}/g, ". ")
+  t = t.replace(/,\s*\./g, ".")
+  t = t.trim()
+
+  t = t.replace(/[:;,]+$/, "")
+  if (!t) return ""
+  if (!/[.!?]$/.test(t)) t += "."
+  return t
+}
+
+/** Cap narration so a slide never sits on screen for 40 seconds. */
+function capNarration(t: string, max = 420): string {
+  if (t.length <= max) return t
+  const cut = t.slice(0, max)
+  const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "))
+  return (lastStop > max * 0.5 ? cut.slice(0, lastStop + 1) : cut.replace(/\s\S*$/, "") + ".").trim()
+}
+
+// ------------------------------------------------------------ md parsing
+type Block =
+  | { k: "h"; level: number; text: string }
+  | { k: "code"; lang: string; lines: string[] }
+  | { k: "table"; head: string[]; rows: string[][] }
+  | { k: "point"; lead: string; rest: string }
+  | { k: "bullet"; text: string }
+  | { k: "para"; text: string }
+  | { k: "signoff"; fields: [string, string][] }
+
+const SIGNOFF_KEYS = ["VOICE", "VALIDATE", "VISUAL", "COMMIT", "PUSHED", "ISSUE", "PR"]
+
+function parseMarkdown(src: string): Block[] {
+  const lines = src.replace(/\r/g, "").split("\n")
+  const out: Block[] = []
+  let i = 0
+  let para: string[] = []
+
+  const flushPara = () => {
+    if (!para.length) return
+    const text = para.join(" ").trim()
+    para = []
+    if (!text) return
+    const lead = text.match(/^\*\*([^*]{2,80})\*\*[:.]?\s*(.*)$/s)
+    if (lead) out.push({ k: "point", lead: lead[1].trim(), rest: lead[2].trim() })
+    else out.push({ k: "para", text })
+  }
+
+  while (i < lines.length) {
+    const ln = lines[i]
+
+    // SIGN-OFF manifest
+    if (/^\s*SIGN-OFF:\s*$/.test(ln) || /^\s*SIGN-OFF:/.test(ln)) {
+      flushPara()
+      const fields: [string, string][] = []
+      i++
+      while (i < lines.length) {
+        const f = lines[i].match(/^\s{2,}([A-Z]+):\s*(.*)$/)
+        if (f && SIGNOFF_KEYS.includes(f[1])) { fields.push([f[1], f[2].trim()]); i++; continue }
+        if (/^\s*$/.test(lines[i]) && fields.length) { i++; continue }
+        if (/^\s*```/.test(lines[i])) { i++; continue }
+        break
+      }
+      if (fields.length) out.push({ k: "signoff", fields })
+      continue
+    }
+
+    // fenced code
+    const fence = ln.match(/^\s*```+\s*(\w*)/)
+    if (fence) {
+      flushPara()
+      const lang = fence[1] || ""
+      const body: string[] = []
+      i++
+      while (i < lines.length && !/^\s*```/.test(lines[i])) { body.push(lines[i]); i++ }
+      i++
+      // A fenced SIGN-OFF block is a manifest, not code.
+      const joined = body.join("\n")
+      if (/^\s*SIGN-OFF:/m.test(joined)) {
+        const fields: [string, string][] = []
+        for (const b of body) {
+          const f = b.match(/^\s*([A-Z]+):\s*(.*)$/)
+          if (f && SIGNOFF_KEYS.includes(f[1])) fields.push([f[1], f[2].trim()])
+        }
+        if (fields.length) { out.push({ k: "signoff", fields }); continue }
+      }
+      if (body.some((b) => b.trim())) out.push({ k: "code", lang, lines: body })
+      continue
+    }
+
+    // heading
+    const h = ln.match(/^(#{1,6})\s+(.+?)\s*#*$/)
+    if (h) { flushPara(); out.push({ k: "h", level: h[1].length, text: h[2].trim() }); i++; continue }
+
+    // horizontal rule
+    if (/^\s*([-*_])\s*\1\s*\1[\s\-*_]*$/.test(ln)) { flushPara(); i++; continue }
+
+    // table
+    if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+      flushPara()
+      const cells = (r: string) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim())
+      const head = cells(ln)
+      i += 2
+      const rows: string[][] = []
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { rows.push(cells(lines[i])); i++ }
+      out.push({ k: "table", head, rows })
+      continue
+    }
+
+    // list item
+    const li = ln.match(/^\s{0,3}(?:[-*+]|\d+[.)])\s+(.+)$/)
+    if (li) {
+      flushPara()
+      let text = li[1].trim()
+      // absorb continuation lines
+      while (i + 1 < lines.length && /^\s{2,}\S/.test(lines[i + 1]) && !/^\s{0,3}(?:[-*+]|\d+[.)])\s/.test(lines[i + 1])) {
+        text += " " + lines[i + 1].trim(); i++
+      }
+      const lead = text.match(/^\*\*([^*]{2,80})\*\*[:.]?\s*(.*)$/s)
+      if (lead) out.push({ k: "point", lead: lead[1].trim(), rest: lead[2].trim() })
+      else out.push({ k: "bullet", text })
+      i++
+      continue
+    }
+
+    if (/^\s*$/.test(ln)) { flushPara(); i++; continue }
+    para.push(ln.trim())
+    i++
+  }
+  flushPara()
+  return out
+}
+
+// ----------------------------------------------------------- slide model
+interface Slide {
+  kicker?: string
+  kickerTone?: "" | "a" | "b" | "w"
+  title: string
+  big?: boolean
+  cont?: boolean          // continuation of the previous slide's section
+  lede?: string
+  points: { n: number; t: string; s: string }[]
+  bullets: string[]
+  code?: { lines: string[] }
+  table?: { head: string[]; rows: string[][] }
+  manifest?: [string, string][]
+  narration: string
+  narrationSrc: string[]
+}
+
+const BUDGET = 10
+const W = { lede: 3, point: 3, bullet: 2, code: 8, table: 8, manifest: 10 }
+
+function newSlide(title: string, kicker?: string, tone: Slide["kickerTone"] = ""): Slide {
+  return { title, kicker, kickerTone: tone, points: [], bullets: [], narration: "", narrationSrc: [] }
+}
+
+function weight(s: Slide): number {
+  return (s.lede ? W.lede : 0) + s.points.length * W.point + s.bullets.length * W.bullet +
+    (s.code ? W.code : 0) + (s.table ? W.table : 0) + (s.manifest ? W.manifest : 0)
+}
+
+function isEmpty(s: Slide): boolean {
+  return !s.lede && !s.points.length && !s.bullets.length && !s.code && !s.table && !s.manifest
+}
+
+const TONES: Slide["kickerTone"][] = ["", "b", "a", "b"]
+
+function buildSlides(blocks: Block[], docTitle: string, completedLine: string | null): Slide[] {
+  const slides: Slide[] = []
+  let cur: Slide | null = null
+  let kicker = "Update"
+  let pointNo = 0
+  let sectionIdx = 0
+
+  const push = () => { if (cur && !isEmpty(cur)) slides.push(cur); cur = null }
+  const ensure = () => {
+    if (!cur) { cur = newSlide(kicker, kicker, TONES[sectionIdx % TONES.length]); cur.title = kicker }
+    return cur
+  }
+  const overflow = () => {
+    if (!cur) return ensure()
+    const c = cur
+    push()
+    cur = newSlide(c.title, c.kicker, c.kickerTone)
+    cur.title = c.title
+    cur.cont = true
+    return cur
+  }
+
+  for (const b of blocks) {
+    if (b.k === "h") {
+      push()
+      sectionIdx++
+      if (b.level <= 2) { kicker = b.text; cur = newSlide(b.text, sectionLabel(sectionIdx), TONES[sectionIdx % TONES.length]) }
+      else { cur = newSlide(b.text, kicker, TONES[sectionIdx % TONES.length]) }
+      pointNo = 0
+      continue
+    }
+    if (b.k === "signoff") { push(); const s = newSlide("Sign-off", "Chain of custody", "b"); s.manifest = b.fields; slides.push(s); continue }
+
+    let s = ensure()
+    const add = (w: number) => { if (weight(s) + w > BUDGET) s = overflow() }
+
+    switch (b.k) {
+      case "para": {
+        add(W.lede)
+        if (s.lede) { s.lede += " " + b.text } else { s.lede = b.text }
+        s.narrationSrc.push(b.text)
+        break
+      }
+      case "point": {
+        add(W.point)
+        pointNo++
+        // The numbered circle already carries the number - do not print it twice.
+        const lead = b.lead.replace(/^\s*(\d+)\s*[.):]\s*/, (_m, n) => { pointNo = parseInt(n, 10); return "" })
+        s.points.push({ n: pointNo, t: lead || b.lead, s: b.rest })
+        s.narrationSrc.push((lead || b.lead) + (b.rest ? ". " + b.rest : ""))
+        break
+      }
+      case "bullet": {
+        add(W.bullet)
+        s.bullets.push(b.text)
+        s.narrationSrc.push(b.text)
+        break
+      }
+      case "code": {
+        add(W.code)
+        const kept = b.lines.filter((l) => l.trim())
+        s.code = { lines: kept.slice(0, 12) }
+        if (kept.length > 12) s.code.lines.push("...")
+        // Plain-prose blocks (verdict lists, log lines, checklists) are worth
+        // narrating. Real syntax is not - the voice would spell out braces.
+        const wordy = kept.filter((l) => /^[\s\w.,:;'"()\/#%+-]+$/.test(l) && /[a-z]{3}/i.test(l))
+        if (wordy.length >= 2 && wordy.length / kept.length > 0.6) {
+          s.narrationSrc.push(wordy.slice(0, 4).join(". "))
+        }
+        break
+      }
+      case "table": {
+        add(W.table)
+        s.table = { head: b.head.slice(0, 4), rows: b.rows.slice(0, 6).map((r) => r.slice(0, 4)) }
+        // Reading a grid aloud is useless. Read the row labels, which is what
+        // the column of names actually is.
+        const labels = b.rows.slice(0, 6).map((r) => r[0]).filter(Boolean)
+        s.narrationSrc.push(labels.length
+          ? `${b.head[0] || "Rows"}: ${labels.join(", ")}.`
+          : `${b.rows.length} rows.`)
+        break
+      }
+    }
+  }
+  push()
+
+  // Title slide, always first, always the same shape. If it has to borrow the
+  // opening paragraph, that paragraph is removed downstream so the deck does
+  // not say the same sentence twice in the first ten seconds.
+  const title = newSlide(docTitle, "8GI - Session report", "")
+  title.big = true
+  if (completedLine) {
+    title.lede = completedLine
+  } else if (slides[0] && slides[0].lede) {
+    title.lede = clip(slides[0].lede, 240)
+    if (slides[0].lede.length <= 260) {
+      slides[0].narrationSrc = slides[0].narrationSrc.filter((x) => x !== slides[0].lede)
+      slides[0].lede = undefined
+      if (isEmpty(slides[0])) slides.shift()
+    }
+  }
+  title.narrationSrc.push(docTitle, title.lede || "")
+  slides.unshift(title)
+
+  // Narration: prose first, title as the honest fallback when there is no prose.
+  for (const s of slides) {
+    let n = speakable(s.narrationSrc.filter(Boolean).join(". "))
+    const t = speakable(s.title).replace(/\.$/, "")
+    if (!n || n.length < 12) {
+      n = s.code ? `${t}. The detail is on screen.`
+        : s.table ? `${t}. The table is on screen.`
+        : s.manifest ? "Sign off. The chain of custody is on screen."
+        : t + "."
+    } else if (!s.cont && t.length > 6 && !n.toLowerCase().startsWith(t.toLowerCase().slice(0, 18))) {
+      n = t + ". " + n
+    }
+    s.narration = capNarration(n)
+  }
+  return slides
+}
+
+function sectionLabel(i: number): string {
+  const labels = ["What happened", "The detail", "The evidence", "What is next", "Open points", "The record"]
+  return labels[(i - 1) % labels.length]
+}
+
+// ------------------------------------------------------------------ html
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+/** Inline markdown -> styled spans. Keeps emphasis, never leaks raw markers. */
+function inline(s: string): string {
+  let t = esc(s)
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>')
+  t = t.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+  t = t.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:]|$)/g, "$1<i>$2</i>")
+  t = t.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+  t = t.replace(/\s*[—–]\s*/g, " - ")   // house rule: no em dashes, ever
+  // Truncation can cut a string between its opening and closing markers, which
+  // otherwise leaks a literal "**" onto the slide. Sweep whatever is left.
+  t = t.replace(/\*{1,3}/g, "").replace(/(^|\s)_(?=\S)/g, "$1").replace(/`/g, "")
+  return t
+}
+
+/** Hard truncation so nothing ever runs off a 1080p slide. */
+const clip = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).replace(/\s\S*$/, "") + "…")
+
+const CSS = `
+:root { --bg:#08080E; --fg:#F4F4F7; --muted:#8A8A98; --dim:#777781;
+        --green:#2ECC8F; --amber:#F2B43C; --blue:#4D9BF5; --warn:#F2704C; }
+* { margin:0; padding:0; box-sizing:border-box;
+    font-family:-apple-system,system-ui,"Helvetica Neue",sans-serif; }
+html,body { width:1920px; height:1080px; background:var(--bg); overflow:hidden; }
+.slide { position:absolute; inset:0; display:none; padding:92px 130px; color:var(--fg);
+  background:
+    radial-gradient(1300px 850px at 78% -12%, rgba(46,204,143,.09), transparent),
+    radial-gradient(900px 700px at 4% 106%, rgba(77,155,245,.07), transparent),
+    var(--bg); }
+/* Vertical centring is the difference between a designed slide and a dump of
+   text in the top-left corner. Content sits in the optical centre of the frame
+   whether the slide carries one line or six points. */
+.slide.active { display:flex; align-items:center; }
+.slide-inner { max-width:1660px; width:100%; }
+.kicker { color:var(--green); font-size:25px; font-weight:700; letter-spacing:4px;
+          text-transform:uppercase; margin-bottom:18px; }
+.kicker.a { color:var(--amber); } .kicker.w { color:var(--warn); } .kicker.b { color:var(--blue); }
+h1 { font-size:92px; font-weight:800; line-height:1.04; letter-spacing:-3px; }
+h2 { font-size:56px; font-weight:800; letter-spacing:-1.5px; margin-bottom:30px; line-height:1.08; }
+.lede { font-size:34px; color:var(--muted); line-height:1.45; max-width:1450px; margin-top:22px; }
+.lede b { color:var(--fg); font-weight:700; }
+.lede code, .pt code, li code { font-family:"SF Mono",ui-monospace,Menlo,monospace;
+  font-size:.86em; color:var(--blue); }
+.pt { display:flex; gap:26px; align-items:flex-start; margin:20px 0; }
+.pt .n { flex:none; width:60px; height:60px; border-radius:50%; border:2px solid var(--green);
+  color:var(--green); font-size:29px; font-weight:800; display:flex; align-items:center;
+  justify-content:center; }
+.pt .b { padding-top:4px; }
+.pt .t { font-size:32px; font-weight:700; line-height:1.25; }
+.pt .s { font-size:26px; color:var(--muted); margin-top:6px; line-height:1.35; max-width:1400px; }
+pre { font-family:"SF Mono",ui-monospace,Menlo,monospace; font-size:25px; line-height:1.5;
+      color:#C9C9D4; white-space:pre; overflow:hidden; margin-top:8px; }
+ul { list-style:none; margin-top:8px; }
+li { font-size:32px; line-height:1.35; margin:16px 0; padding-left:40px; position:relative;
+     max-width:1500px; }
+li::before { content:""; position:absolute; left:0; top:13px; width:12px; height:12px;
+             border-radius:50%; background:var(--green); }
+li b { font-weight:700; } li i { color:var(--muted); font-style:normal; }
+table { border-collapse:collapse; margin-top:14px; width:100%; max-width:1600px; }
+th { text-align:left; font-size:24px; letter-spacing:2px; text-transform:uppercase;
+     color:var(--green); padding:0 26px 16px 0; font-weight:700; }
+td { font-size:29px; color:var(--fg); padding:14px 26px 14px 0; line-height:1.3;
+     border-top:1px solid rgba(255,255,255,.09); vertical-align:top; }
+td:first-child { color:var(--fg); font-weight:600; }
+td code { font-size:25px; }
+.man { margin-top:10px; }
+.man .r { display:flex; gap:28px; align-items:baseline; padding:13px 0;
+          border-top:1px solid rgba(255,255,255,.08); }
+.man .k { flex:none; width:220px; color:var(--green); font-size:24px; font-weight:700;
+          letter-spacing:3px; text-transform:uppercase; }
+.man .v { font-size:28px; color:var(--fg); font-family:"SF Mono",ui-monospace,Menlo,monospace;
+          word-break:break-word; }
+.foot { position:absolute; bottom:60px; left:130px; color:var(--dim); font-size:23px; }
+.stamp { position:absolute; bottom:60px; right:130px; color:var(--dim); font-size:20px;
+         letter-spacing:2px; }
+`
+
+function renderSlideBody(s: Slide): string {
+  const p: string[] = []
+  const kick = s.kicker ? (s.cont ? `${s.kicker} - continued` : s.kicker) : ""
+  if (kick) p.push(`<div class="kicker ${s.kickerTone}">${esc(clip(kick, 62))}</div>`)
+  p.push(s.big ? `<h1>${inline(clip(s.title, 84))}</h1>` : `<h2>${inline(clip(s.title, 110))}</h2>`)
+  if (s.lede) p.push(`<div class="lede">${inline(clip(s.lede, 330))}</div>`)
+  for (const pt of s.points) {
+    p.push(`<div class="pt"><div class="n">${pt.n}</div><div class="b">` +
+      `<div class="t">${inline(clip(pt.t, 92))}</div>` +
+      (pt.s ? `<div class="s">${inline(clip(pt.s, 240))}</div>` : ``) +
+      `</div></div>`)
+  }
+  if (s.bullets.length) {
+    p.push(`<ul>` + s.bullets.map((b) => `<li>${inline(clip(b, 190))}</li>`).join("") + `</ul>`)
+  }
+  if (s.code) {
+    p.push(`<pre>${s.code.lines.map((l) => esc(clip(l.replace(/\t/g, "  "), 92))).join("\n")}</pre>`)
+  }
+  if (s.table) {
+    p.push(`<table><tr>` + s.table.head.map((h) => `<th>${inline(clip(h, 26))}</th>`).join("") + `</tr>` +
+      s.table.rows.map((r) => `<tr>` + r.map((c) => `<td>${inline(clip(c, 74))}</td>`).join("") + `</tr>`).join("") +
+      `</table>`)
+  }
+  if (s.manifest) {
+    p.push(`<div class="man">` + s.manifest.map(([k, v]) =>
+      `<div class="r"><div class="k">${esc(k)}</div><div class="v">${esc(clip(v || "-", 96))}</div></div>`).join("") + `</div>`)
+  }
+  return p.join("\n    ")
+}
+
+function renderDeck(slides: Slide[], voice: string, docTitle: string, officer: Officer): string {
+  const date = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+  const body = slides.map((s, i) => {
+    const vo = esc(s.narration).replace(/\n/g, " ")
+    const extra = i === 0 ? `\n    <div class="foot">${esc(date)}</div>` : ``
+    const stamp = i === slides.length - 1 ? `\n    <div class="stamp">${esc(officer.toUpperCase())}</div>` : ``
+    return `<div class="slide" data-slide="${i}" data-voice="${esc(voice)}" data-voiceover="${vo}">\n  <div class="slide-inner">\n    ${renderSlideBody(s)}${extra}${stamp}\n  </div>\n</div>`
+  }).join("\n\n")
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${esc(docTitle)}</title>
+<style>${CSS}</style>
+</head>
+<body>
+
+${body}
+
+<script>
+(function () {
+  var slides = document.querySelectorAll('.slide'); var i = 0;
+  function show(n) { i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (el, idx) { el.classList.toggle('active', idx === i); }); }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ') show(i + 1);
+    if (e.key === 'ArrowLeft') show(i - 1); });
+  function fromHash() { var m = (location.hash.match(/slide=(\\d+)/) || [])[1];
+    show(m == null ? 0 : +m); }
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+})();
+</script>
+</body>
+</html>
+`
+}
+
+// =================================================================== VALUE
+// The value deck. 8DO owns everything below this line except the content
+// model, which is 8PO's (see THE SEAM).
+//
+// WHY IT EXISTS. The extractive deck above renders whatever shape the response
+// happens to have. When the response is an engineering response, the deck is an
+// engineering deck: every headline says "Update", the body carries mechanism,
+// and the colour is positional so a security finding renders reassuring green.
+// James's verdict, 2026-08-09: "too technical".
+//
+// The fix is not better extraction. It is a FIXED SPINE of eight slides with
+// WRITTEN narration. A fixed shape means the deck is the same object every run,
+// so it is scannable by memory rather than by reading; it makes an absent field
+// LOUD instead of invisible; and it lets narration carry real connective tissue,
+// because slide N always knows what slide N+1 is going to say.
+//
+// Nothing here invents. Every field is nullable and an absent field renders as
+// "Not stated" in amber. An empty slot is a true signal about the run.
+// ------------------------------------------------------------------------
+
+/**
+ * THE SEAM (8DO consumes, 8PO supplies).
+ *
+ * If `~/.claude/bin/lib/session-value.ts` exists and exports
+ * `extractSessionValue(src: string): SessionValue | Promise<SessionValue>`,
+ * it owns the content. Otherwise the conservative fallback below runs, which
+ * only ever LIFTS text verbatim from the response and never computes a number.
+ *
+ * Every field is nullable. A partial object is safe: `normaliseValue` fills the
+ * gaps with null so a missing key can never reach a slide as "undefined".
+ */
+export type RegressionState = "none" | "found" | "unverified"
+export interface Improvement { metric: string; before: string | null; after: string | null }
+export interface Remaining { text: string; done?: boolean }
+export interface SessionValue {
+  headline: string | null                          // the value claim, <= 8 words
+  value: string | null                             // what is now true that was not
+  jtbd: string | null                              // the job this run moved
+  skill: string | null                             // capability gained, permanent
+  regression: { state: RegressionState; note: string | null }
+  learned: string | null
+  improvement: Improvement[]                       // measured, never computed
+  goal: string | null
+  remaining: Remaining[]
+  evidence: { label: string; value: string }[]     // verbatim only
+  ask: string | null                               // the one decision for James
+}
+
+const VALUE_MODULE = join(HOME, ".claude/bin/lib/session-value.ts")
+
+const str = (x: unknown): string | null => {
+  if (typeof x !== "string") return null
+  const t = x.trim().replace(/\s+/g, " ")
+  return t.length >= 2 ? t : null
+}
+
+/** Contract guard: any shape in, a complete SessionValue out. Never throws. */
+function normaliseValue(raw: any): SessionValue {
+  const r = raw && typeof raw === "object" ? raw : {}
+  const state = ["none", "found", "unverified"].includes(r?.regression?.state)
+    ? (r.regression.state as RegressionState) : "unverified"
+  return {
+    headline: str(r.headline),
+    value: str(r.value),
+    jtbd: str(r.jtbd),
+    skill: str(r.skill),
+    regression: { state, note: str(r?.regression?.note) },
+    learned: str(r.learned),
+    improvement: Array.isArray(r.improvement)
+      ? r.improvement.filter((i: any) => str(i?.metric))
+        .map((i: any) => ({ metric: str(i.metric)!, before: str(i.before), after: str(i.after) }))
+      : [],
+    goal: str(r.goal),
+    remaining: Array.isArray(r.remaining)
+      ? r.remaining.filter((x: any) => str(x?.text ?? x))
+        .map((x: any) => ({ text: str(x?.text ?? x)!, done: !!x?.done }))
+      : [],
+    evidence: Array.isArray(r.evidence)
+      ? r.evidence.filter((e: any) => str(e?.label) && str(e?.value))
+        .map((e: any) => ({ label: str(e.label)!, value: str(e.value)! }))
+      : [],
+    ask: str(r.ask),
+  }
+}
+
+async function loadSessionValue(src: string): Promise<{ v: SessionValue; from: string }> {
+  if (existsSync(VALUE_MODULE)) {
+    try {
+      const mod: any = await import(VALUE_MODULE)
+      const fn = mod.extractSessionValue ?? mod.default
+      if (typeof fn === "function") return { v: normaliseValue(await fn(src)), from: "session-value.ts" }
+      log("value module has no extractSessionValue export - using fallback")
+    } catch (e: any) {
+      log(`value module threw, using fallback: ${e?.message || e}`)
+    }
+  }
+  return { v: normaliseValue(fallbackValue(src)), from: "fallback (8PO module absent)" }
+}
+
+// -------------------------------------------------- conservative fallback
+/** Strip inline markdown. Removes, never rewrites. */
+function plain(s: string): string {
+  return s.replace(/`([^`]*)`/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_]/g, "")
+    .replace(/\s*[—–]\s*/g, " - ").replace(/\s+/g, " ").trim().replace(/[:;,]+$/, "")
+}
+
+/**
+ * Find `Label: value` on its own line. Markdown is stripped BEFORE matching,
+ * because house style writes `**Learned:**` with the colon inside the bold
+ * markers and a pattern anchored on the markers misses it every time.
+ */
+function labelled(src: string, labels: string[]): string | null {
+  const re = new RegExp(`^(?:${labels.join("|")})\\s*[:\\-]\\s+(.+)$`, "i")
+  for (const raw of src.split("\n")) {
+    const ln = plain(raw.replace(/^\s{0,3}(?:[-*+]|\d+[.)])\s+/, "")).trim()
+    const m = ln.match(re)
+    if (m) { const t = str(m[1]); if (t) return t }
+  }
+  return null
+}
+
+/** Bullets that follow a heading or bold lead matching one of `labels`. */
+function sectionItems(src: string, labels: string[], max: number): string[] {
+  const re = new RegExp(`^\\s*(?:#{1,4}\\s*|\\**)(?:${labels.join("|")})[^\\n]*$`, "im")
+  const m = src.match(re)
+  if (!m) return []
+  const after = src.slice((m.index ?? 0) + m[0].length).split("\n")
+  const out: string[] = []
+  for (const ln of after) {
+    if (/^\s*#{1,4}\s/.test(ln)) break
+    const li = ln.match(/^\s{0,3}(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?(.+)$/)
+    if (li) { const t = str(plain(li[1])); if (t) out.push(t) }
+    else if (out.length && /^\s*$/.test(ln)) continue
+    else if (out.length) break
+  }
+  return out.slice(0, max)
+}
+
+/**
+ * Fills only what the response literally says. No arithmetic, no inference of a
+ * clean bill of health: a regression is "unverified" unless the response states
+ * otherwise, because "tests passed" is not the same sentence as "nothing broke".
+ */
+function fallbackValue(src: string): SessionValue {
+  const completed = extractCompleted(src)
+  const improvement: Improvement[] = []
+  const seen = new Set<string>()
+  const push = (metric: string, before: string | null, after: string | null) => {
+    const m = str(plain(metric))
+    if (!m || seen.has(m.toLowerCase()) || improvement.length >= 3) return
+    seen.add(m.toLowerCase()); improvement.push({ metric: m, before, after })
+  }
+  // Only forms where BOTH sides are literally present in the text.
+  for (const m of src.matchAll(/([A-Za-z][\w %.\-/()]{2,42}?)\s+(?:went\s+)?from\s+([\d][\w.%,:/]*)\s+to\s+([\d][\w.%,:/]*)/gi)) {
+    push(m[1], m[2], m[3])
+  }
+  for (const m of src.matchAll(/^\s*(?:[-*+]\s*)?\**([A-Za-z][\w %.\-/()]{2,42}?)\**\s*[:|]\s*([\d][\w.%,:/]*)\s*(?:->|→|=>)\s*([\d][\w.%,:/]*)/gim)) {
+    push(m[1], m[2], m[3])
+  }
+
+  const evidence: { label: string; value: string }[] = []
+  for (const k of ["VALIDATE", "COMMIT", "PUSHED", "PR"]) {
+    const m = src.match(new RegExp(`^\\s{0,6}${k}:\\s*(.+)$`, "m"))
+    const v = m ? str(plain(m[1])) : null
+    if (v && !/^(no |none|direct push|deploy pending)/i.test(v)) evidence.push({ label: k, value: v })
+  }
+  const tests = src.match(/\b([\d,]{1,7})\s+tests?\s+pass(?:ing|ed)?\b/i)
+  if (tests) evidence.unshift({ label: "TESTS", value: `${tests[1]} passing` })
+
+  const regFound = /\bregressions?\s+(?:were\s+)?(?:found|introduced|detected)\b|\bbroke\s+(?:an?\s+)?existing\b/i.test(src)
+  const regNone = /\bno\s+regressions?\b|\bregressions?\s*[:=]\s*(?:no|none)\b|\bnothing\s+(?:that worked\s+)?(?:before\s+)?broke\b/i.test(src)
+
+  let ask = labelled(src, ["The ask", "Ask", "Decision needed", "Your call", "Needs your decision"])
+  if (!ask) {
+    const qs = src.replace(/```[\s\S]*?```/g, " ").match(/[^.!?\n]{12,160}\?/g)
+    if (qs) ask = str(plain(qs[qs.length - 1]))
+  }
+
+  return {
+    headline: str(plain(completed || "")) ,
+    value: labelled(src, ["Value", "What changed for you", "Impact"]) ?? str(plain(completed || "")),
+    jtbd: labelled(src, ["JTBD", "Job to be done", "The job", "Job"]),
+    skill: labelled(src, ["Skill", "Skill gained", "Capability", "Capability gained"]),
+    regression: {
+      state: regFound ? "found" : regNone ? "none" : "unverified",
+      note: labelled(src, ["Regression", "Regressions"]),
+    },
+    learned: labelled(src, ["Learned", "What we learned", "Lesson", "Lesson learned"]),
+    improvement,
+    goal: labelled(src, ["Goal", "The goal", "Target"]),
+    remaining: [
+      ...sectionItems(src, ["What is left", "What's left", "Remaining", "Outstanding", "Still open", "Next"], 4)
+        .map((t) => ({ text: t, done: false })),
+      ...(src.match(/^\s*[-*+]\s*\[ \]\s*(.+)$/gim) || []).slice(0, 4)
+        .map((l) => ({ text: plain(l.replace(/^\s*[-*+]\s*\[ \]\s*/, "")), done: false })),
+    ].slice(0, 4),
+    evidence: evidence.slice(0, 3),
+    ask,
+  }
+}
+
+// ------------------------------------------------------------- hard caps
+/**
+ * Enforced in code, not trusted to the input. The brief is "simple": James is
+ * AuDHD and runs twelve projects, so a dense deck is a wall he bounces off.
+ *
+ * EIGHT slides, always. There is no overflow path in this renderer - the
+ * function that splits a full slide into "continued" simply does not exist
+ * here, so a deck of nine is unreachable rather than merely discouraged.
+ */
+const CAP = {
+  slides: 8,
+  headlineWords: 15,
+  lineWords: 15,
+  lines: 3,
+  slideWords: 42,
+  narrationWords: 46,
+  askWords: 20,
+  ladderRows: 4,
+  stats: 3,
+  statLabelWords: 5,
+}
+
+const words = (s: string) => (s.trim() ? s.trim().split(/\s+/).length : 0)
+
+/** Words that cannot be the last word on a slide. They promise a next word. */
+const DANGLERS = new Set(("a an the of for on in to and or with without by at from that which is are was were " +
+  "into onto over under after before while as but so than then its their his her our your my this these those " +
+  "no not per via up out off about between across through during since until").split(" "))
+
+/**
+ * Shorten by REMOVING, never by rewriting, and never with an ellipsis. An
+ * ellipsis on a slide is an open loop, and an open loop is exactly the thing an
+ * ADHD reader pays for twice. Prefer whole sentences; then a whole clause.
+ */
+function tighten(s: string, maxWords: number): string {
+  const t = s.trim().replace(/\s+/g, " ")
+  if (words(t) <= maxWords) return t
+  const sentences = t.match(/[^.!?]+[.!?]+/g) || []
+  let acc = ""
+  for (const sen of sentences) {
+    if (words(acc + sen) > maxWords) break
+    acc += sen
+  }
+  if (words(acc) >= Math.min(4, maxWords)) return acc.trim()
+  const cut = t.split(/\s+/).slice(0, maxWords).join(" ")
+  // Prefer ending on a clause boundary. "Telegram autonomy merged, allowlist
+  // verified" is a headline; "...verified, a callback hole" is a dangling limb.
+  const brk = Math.max(cut.lastIndexOf(","), cut.lastIndexOf(";"), cut.lastIndexOf(":"))
+  const clause = brk > 0 ? cut.slice(0, brk) : ""
+  const base = words(clause) >= 4 ? clause : cut
+  // And never end on a word that is holding the door open for the next one.
+  const w = base.replace(/[,;:]+$/, "").split(" ")
+  while (w.length > 4 && DANGLERS.has(w[w.length - 1].toLowerCase().replace(/[^a-z-]/g, ""))) w.pop()
+  return w.join(" ").replace(/[\s,;:\u00b7\-]+$/, "")
+}
+
+// ------------------------------------------------------------ the spine
+type VKind = "title" | "claim" | "stat" | "verdict" | "ladder" | "ask"
+type Tone = "" | "good" | "watch" | "alert"
+
+interface VSlide {
+  kind: VKind
+  act: 1 | 2 | 3
+  kicker: string
+  headline: string
+  unsetHeadline?: boolean
+  lines: { text: string; unset?: boolean }[]
+  tone: Tone
+  stats?: { big: string; lab: string; sub?: string; tone: Tone }[]
+  verdict?: { word: string; why: string }
+  rows?: { text: string; done: boolean }[]
+  record?: [string, string][]
+  narration: string
+}
+
+const NOT_STATED = "Not stated"
+
+/** A support line, or the honest absence of one. Never a guess. */
+const line = (t: string | null, fallback: string): { text: string; unset?: boolean } =>
+  t ? { text: tighten(t, CAP.lineWords) } : { text: fallback, unset: true }
+
+/** Drop whole trailing lines rather than truncate one. Silence beats an ellipsis. */
+function fitSlide(s: VSlide): VSlide {
+  let total = words(s.headline)
+  const kept: typeof s.lines = []
+  for (const l of s.lines) {
+    if (kept.length >= CAP.lines) break
+    if (total + words(l.text) > CAP.slideWords && kept.length) break
+    kept.push(l); total += words(l.text)
+  }
+  s.lines = kept
+  if (s.kind !== "ask") s.headline = tighten(s.headline, CAP.headlineWords)
+  return s
+}
+
+/**
+ * NARRATION. Written, not extracted, and that is the whole point: James listens
+ * more than he watches. Seven fixed HINGES carry him slide to slide - "That is
+ * worth a number", "Now the part that compounds", "So here is what improved" -
+ * which is only writable because the spine guarantees what comes next.
+ *
+ * Warm, brief, no jokes, per the Voice Experience Contract. Deterministic: the
+ * same SessionValue produces the same sentences every time.
+ */
+function narrate(raw: string): string {
+  const t = speakable(raw)
+  const w = t.split(/\s+/)
+  if (w.length <= CAP.narrationWords) return t
+  const cut = w.slice(0, CAP.narrationWords).join(" ")
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "))
+  return stop > cut.length * 0.4 ? cut.slice(0, stop + 1).trim() : cut.replace(/[,;:]+$/, "") + "."
+}
+
+const ACT_NAME: Record<1 | 2 | 3, string> = {
+  1: "Act one - what changed for you",
+  2: "Act two - what the system learned",
+  3: "Act three - where this leaves us",
+}
+
+function buildValueSpine(v: SessionValue, narratorLabel: string, officer: Officer): VSlide[] {
+  const s: VSlide[] = []
+  const n = (x: string) => x.replace(/\s+/g, " ").trim()
+  // A spoken clause has a shorter comfortable length than a written one. Fields
+  // are tightened before they enter a sentence, not after the sentence is built,
+  // so the hinge phrase is never the thing that gets cut.
+  const sp = (x: string | null, max = 24) => (x ? tighten(x, max) : "")
+
+  // 1. TITLE - the verdict card. One claim, one line, nothing else.
+  const headline = v.headline ?? v.value ?? null
+  s.push(fitSlide({
+    kind: "title", act: 1, kicker: "8GI - Session value",
+    headline: headline ?? "Nothing was claimed",
+    unsetHeadline: !headline,
+    // The title card carries a claim and nothing else. When the value IS the
+    // headline there is no second line to write, and inventing an absence
+    // ("No value was stated") under a stated value would be a lie on slide one.
+    lines: headline
+      ? (v.value && v.value !== headline ? [line(v.value, "")] : [])
+      : [{ text: "No value was stated for this run.", unset: true }],
+    tone: headline ? "" : "watch",
+    narration: narrate(headline
+      ? `${narratorLabel} here. ${sp(headline, 20)}.`
+      : `${narratorLabel} here. This run did not state what it changed for you, so read the rest as work without a claim.`),
+  }))
+
+  // 2. THE JOB - value framed as the job it moved, not the code it touched.
+  s.push(fitSlide({
+    kind: "claim", act: 1, kicker: ACT_NAME[1],
+    headline: v.jtbd ?? "The job was not stated",
+    unsetHeadline: !v.jtbd,
+    // Three states, not two: a different outcome gets a line, an outcome the
+    // title card already made gets silence, and a missing one gets the amber
+    // "not stated". Reusing "not stated" for the second case would print a
+    // falsehood underneath a value that is on screen one slide earlier.
+    lines: v.value && v.value !== headline ? [line(v.value, "")]
+      : v.value ? []
+        : [{ text: "No outcome was stated.", unset: true }],
+    tone: v.jtbd ? "" : "watch",
+    narration: narrate(v.jtbd
+      ? `Start with the job this moved. ${sp(v.jtbd)}. ${sp(v.value)}`
+      : `Start with the job. It was not stated, so nobody can say which of your twelve projects this run served.`),
+  }))
+
+  // 3. THE NUMBER - the only place a number gets big, so a number means something.
+  const imp = v.improvement.slice(0, CAP.stats)
+  const spoken = imp.slice(0, 2).map((i) => i.before && i.after
+    ? `${i.metric} went from ${i.before} to ${i.after}`
+    : `${i.metric} is now ${i.after ?? i.before ?? "unstated"}`).join(", and ")
+  s.push(fitSlide({
+    kind: "stat", act: 1, kicker: ACT_NAME[1],
+    headline: imp.length ? "Quantified" : "Not measured",
+    unsetHeadline: !imp.length,
+    lines: imp.length ? [] : [{ text: "This run produced no measured improvement.", unset: true }],
+    tone: imp.length ? "good" : "watch",
+    // When nothing was measured there is no stat block. A giant "NOT MEASURED"
+    // above a line that says the same thing is shouting, and the amber headline
+    // has already carried it.
+    stats: imp.length
+      ? imp.map((i) => ({
+        big: i.after ?? i.before ?? NOT_STATED,
+        lab: tighten(i.metric, CAP.statLabelWords),
+        sub: i.before && i.after ? `from ${i.before}` : undefined,
+        tone: "good" as Tone,
+      }))
+      : undefined,
+    narration: narrate(imp.length
+      ? `That is worth a number. ${spoken}.`
+      : `That is worth a number, and this run does not have one. Nothing was measured, so the improvement cannot be proven. That is the gap to close next run.`),
+  }))
+
+  // 4. WHAT WE LEARNED - act two opens on the compounding part.
+  s.push(fitSlide({
+    kind: "claim", act: 2, kicker: ACT_NAME[2],
+    headline: v.learned ?? "Nothing was recorded as learned",
+    unsetHeadline: !v.learned,
+    lines: [],
+    tone: v.learned ? "" : "watch",
+    narration: narrate(v.learned
+      ? `Now the part that compounds. What we learned. ${sp(v.learned, 26)}.`
+      : `Now the part that compounds, except this run recorded nothing learned. Work without a lesson is work you can be asked to do again.`),
+  }))
+
+  // 5. THE SKILL - the hinge the brief asked for, in the exact place it belongs:
+  //    learning on the left, the permanent capability it bought on the right.
+  s.push(fitSlide({
+    kind: "claim", act: 2, kicker: ACT_NAME[2],
+    headline: v.skill ?? "No new capability",
+    unsetHeadline: !v.skill,
+    lines: [],
+    tone: v.skill ? "good" : "watch",
+    narration: narrate(v.skill
+      ? `So here is what improved permanently. ${sp(v.skill, 26)}.`
+      : `So here is what improved permanently. Nothing did. The system is the same size tonight as it was this morning.`),
+  }))
+
+  // 6. REGRESSION - the one slide where colour is a fact, and it is always
+  //    paired with the word, so the deck reads correctly in greyscale.
+  const reg = v.regression.state
+  const vword = reg === "none" ? "NO REGRESSION" : reg === "found" ? "REGRESSION FOUND" : "NOT VERIFIED"
+  s.push(fitSlide({
+    kind: "verdict", act: 2, kicker: ACT_NAME[2],
+    headline: vword,
+    lines: [line(v.regression.note, reg === "unverified"
+      ? "Nobody checked whether something that worked before still works."
+      : "No detail stated.")],
+    tone: reg === "none" ? "good" : reg === "found" ? "alert" : "watch",
+    verdict: { word: vword, why: v.regression.note ?? "" },
+    narration: narrate(
+      reg === "none" ? `On regressions. Nothing that worked before stopped working, and that was checked. ${sp(v.regression.note, 18)}`
+        : reg === "found" ? `On regressions. Something that worked before is broken now. ${sp(v.regression.note, 22) || "The detail is on screen."}`
+          : `On regressions. This was not verified, so treat it as unknown rather than as fine.`),
+  }))
+
+  // 7. THE LADDER - goal on top, what remains under it. Act three.
+  const rows = v.remaining.slice(0, CAP.ladderRows).map((r) => ({ text: tighten(r.text, CAP.lineWords), done: !!r.done }))
+  const left = rows.filter((r) => !r.done).length
+  s.push(fitSlide({
+    kind: "ladder", act: 3, kicker: ACT_NAME[3],
+    headline: v.goal ?? "No goal stated",
+    unsetHeadline: !v.goal,
+    lines: rows.length ? [] : [{ text: "Nothing was listed as remaining.", unset: true }],
+    tone: v.goal ? "" : "watch",
+    rows,
+    narration: narrate(v.goal
+      ? `Where that leaves the goal. ${sp(v.goal, 20)}. ${left ? `${left} thing${left === 1 ? "" : "s"} remain. ${rows.find((r) => !r.done)?.text ?? ""}` : "Nothing was listed as remaining."}`
+      : `Where that leaves the goal. No goal was stated, so there is no way to tell how close this run got. ${left ? `${left} thing${left === 1 ? "" : "s"} are still listed as remaining.` : ""}`),
+  }))
+
+  // 8. THE ASK - the only slide with a job: make James do one thing. It is last
+  //    because the last frame is the one that stays on screen after the audio.
+  // Two pieces of evidence, chosen by what actually proves a claim rather than
+  // by the order they happened to appear in the sign-off.
+  const RANK = ["TESTS", "VALIDATE", "COMMIT", "PUSHED", "PR", "ISSUE", "VISUAL"]
+  const rank = (l: string) => { const i = RANK.indexOf(l.toUpperCase()); return i < 0 ? RANK.length : i }
+  const record: [string, string][] = [...v.evidence]
+    .sort((a, b) => rank(a.label) - rank(b.label)).slice(0, 2)
+    .map((e) => [e.label, e.value] as [string, string])
+  record.push(["WORKED BY", officer === "James" ? "AI James" : officer])
+  s.push(fitSlide({
+    // The ask gets a longer allowance than any other headline and steps the type
+    // down instead. Cutting "restart it, or leave it until you are done" at the
+    // comma turns a choice into an instruction, which is a truncation that
+    // changes the decision. The type may shrink; the question may not.
+    kind: "ask", act: 3, kicker: "The ask",
+    headline: v.ask ? tighten(v.ask, CAP.askWords) : "Nothing needs you",
+    unsetHeadline: !v.ask,
+    lines: [line(v.ask ? "Reply with your call and nothing moves until you do." : null,
+      "No decision is waiting on you. This one is closed.")],
+    tone: v.ask ? "watch" : "",
+    record,
+    narration: narrate(v.ask
+      ? `One decision from you. ${sp(v.ask, 26)} Nothing moves until you answer.`
+      : `And nothing needs a decision from you. This one is closed.`),
+  }))
+
+  return s.slice(0, CAP.slides).map((x) => ({ ...x, headline: n(x.headline) }))
+}
+
+// -------------------------------------------------------------- value css
+/**
+ * COLOUR IS SEMANTIC, NEVER POSITIONAL.
+ *
+ * The old deck coloured a kicker by `sectionIdx % 4`, so green meant "you are on
+ * an even section", which is how a slide about a security hole rendered
+ * reassuring. Here the default is NEUTRAL. Colour appears only when it carries a
+ * fact, and then it carries exactly one:
+ *
+ *   good  #2ECC8F  a verified improvement, or a checked no-regression
+ *   watch #F2B43C  not stated, not measured, not verified, still remaining
+ *   alert #F2704C  something that worked before is broken
+ *
+ * Every coloured state is PAIRED WITH ITS WORD (WCAG 1.4.1), so the deck reads
+ * correctly in greyscale and for a colour-blind viewer. Hues 270-350 are banned
+ * by BRAND.md and none appear here. Body copy is #B9B9C4 on #08080E, ~9.7:1.
+ */
+const VALUE_CSS = `
+:root{ --bg:#08080E; --fg:#F6F6F9; --soft:#B9B9C4; --meta:#7E7E8C;
+  --good:#2ECC8F; --watch:#F2B43C; --alert:#F2704C; --accent:#4D9BF5;
+  --tone:#8E93A3; --wash:rgba(120,132,152,.055); }
+*{margin:0;padding:0;box-sizing:border-box;
+  font-family:-apple-system,system-ui,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;}
+html,body{width:1920px;height:1080px;background:var(--bg);overflow:hidden;}
+.slide{position:absolute;inset:0;display:none;padding:150px 132px 210px;color:var(--fg);
+  background:radial-gradient(1600px 900px at 50% -18%, var(--wash), transparent), var(--bg);}
+.slide.good{--tone:var(--good);--wash:rgba(46,204,143,.075);}
+.slide.watch{--tone:var(--watch);--wash:rgba(242,180,60,.075);}
+.slide.alert{--tone:var(--alert);--wash:rgba(242,112,76,.085);}
+.slide.active{display:flex;align-items:center;}
+.in{width:100%;max-width:1480px;}
+.acts{display:flex;gap:11px;margin-bottom:30px;}
+.acts i{display:block;width:66px;height:5px;border-radius:3px;background:#25252F;}
+.acts i.on{background:var(--tone);}
+.kick{color:var(--tone);font-size:23px;font-weight:700;letter-spacing:4.5px;
+  text-transform:uppercase;margin-bottom:28px;}
+h1{font-size:98px;font-weight:800;line-height:1.02;letter-spacing:-3.4px;max-width:1420px;}
+h2{font-size:74px;font-weight:800;line-height:1.06;letter-spacing:-2.4px;max-width:1420px;}
+h1.s2{font-size:78px;letter-spacing:-2.6px;} h2.s2{font-size:62px;letter-spacing:-1.9px;}
+h1.s3{font-size:64px;letter-spacing:-2px;line-height:1.08;} h2.s3{font-size:54px;letter-spacing:-1.5px;line-height:1.1;}
+h1.un,h2.un{color:var(--watch);}
+h1.tn,h2.tn{color:var(--tone);}
+.sup{margin-top:36px;display:flex;flex-direction:column;gap:18px;}
+.sup p{font-size:38px;line-height:1.38;color:var(--soft);font-weight:500;max-width:1340px;}
+.sup p.un{color:var(--watch);}
+.stats{display:flex;gap:104px;margin-top:30px;flex-wrap:wrap;}
+.stat .big{font-size:126px;font-weight:800;letter-spacing:-4px;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--tone);}
+.stat .big.sm{font-size:74px;letter-spacing:-2px;}
+.stat .lab{font-size:26px;letter-spacing:3.5px;text-transform:uppercase;color:var(--meta);
+  font-weight:700;margin-top:16px;}
+.stat .sub{font-size:29px;color:var(--soft);margin-top:9px;}
+.rows{margin-top:36px;}
+.row{display:flex;align-items:baseline;gap:26px;padding:19px 0;
+  border-top:1px solid rgba(255,255,255,.085);}
+.row .dot{flex:none;width:14px;height:14px;border-radius:50%;transform:translateY(-3px);}
+.row.done .dot{background:var(--good);}
+.row.left .dot{border:3px solid var(--watch);}
+.row .txt{font-size:34px;line-height:1.3;color:var(--fg);flex:1;}
+.row .st{font-size:21px;letter-spacing:3.5px;text-transform:uppercase;font-weight:700;flex:none;}
+.row.done .st{color:var(--good);} .row.left .st{color:var(--watch);}
+.rec{position:absolute;bottom:96px;left:132px;right:132px;display:flex;gap:70px;
+  padding-top:24px;border-top:1px solid rgba(255,255,255,.08);}
+.rec .k{font-size:18px;letter-spacing:3.5px;text-transform:uppercase;color:var(--meta);font-weight:700;}
+.rec .v{font-size:25px;color:var(--soft);margin-top:7px;line-height:1.25;
+  max-width:460px;word-break:break-word;}
+.pg{position:absolute;bottom:52px;right:132px;font-size:22px;letter-spacing:4px;
+  color:var(--meta);font-variant-numeric:tabular-nums;font-weight:700;}
+.date{position:absolute;bottom:52px;left:132px;font-size:22px;letter-spacing:2px;color:var(--meta);}
+.sr{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+`
+
+function renderValueSlide(s: VSlide, i: number, total: number, date: string): string {
+  const p: string[] = []
+  p.push(`<div class="in">`)
+  // In the flow, directly above the kicker: act bar, kicker, headline, support
+  // is one composed unit with one vertical rhythm. Pinned to the frame corner it
+  // was a stranded mark with three hundred pixels of nothing under it.
+  p.push(`  <div class="acts" aria-hidden="true">` +
+    [1, 2, 3].map((a) => `<i class="${a === s.act ? "on" : ""}"></i>`).join("") + `</div>`)
+  p.push(`  <div class="kick">${esc(s.kicker)}</div>`)
+  // The type adapts so the SENTENCE stays whole. A claim that needs thirteen
+  // words gets thirteen words at a smaller size; it is never amputated to fit a
+  // size. Two tidy lines of a real sentence beat one line of a fragment.
+  const tag = s.kind === "title" ? "h1" : "h2"
+  const hw = words(s.headline)
+  // A verdict word IS the colour. Leaving it white was the same class of bug as
+  // the positional green: a slide that states a status without showing it.
+  const cls = [s.unsetHeadline ? "un" : s.kind === "verdict" ? "tn" : "",
+    hw >= 13 ? "s3" : hw >= 9 ? "s2" : ""].filter(Boolean).join(" ")
+  p.push(`  <${tag}${cls ? ` class="${cls}"` : ""}>${inline(s.headline)}</${tag}>`)
+
+  if (s.stats?.length) {
+    p.push(`  <div class="stats">` + s.stats.map((st) =>
+      `<div class="stat"><div class="big${st.big.length > 9 ? " sm" : ""}">${inline(st.big)}</div>` +
+      `<div class="lab">${inline(st.lab)}</div>` +
+      (st.sub ? `<div class="sub">${inline(st.sub)}</div>` : ``) + `</div>`).join("") + `</div>`)
+  }
+  if (s.rows?.length) {
+    p.push(`  <div class="rows">` + s.rows.map((r) =>
+      `<div class="row ${r.done ? "done" : "left"}"><span class="dot"></span>` +
+      `<span class="txt">${inline(r.text)}</span>` +
+      `<span class="st">${r.done ? "done" : "left"}</span></div>`).join("") + `</div>`)
+  }
+  if (s.lines.length) {
+    p.push(`  <div class="sup">` + s.lines.map((l) =>
+      `<p${l.unset ? ` class="un"` : ""}>${inline(l.text)}</p>`).join("") + `</div>`)
+  }
+  // Screen readers get the spoken line; the renderer never sees it.
+  p.push(`  <p class="sr">${esc(s.narration)}</p>`)
+  p.push(`</div>`)
+
+  if (s.record?.length) {
+    p.push(`<div class="rec">` + s.record.map(([k, v]) =>
+      `<div><div class="k">${esc(k)}</div><div class="v">${esc(tighten(v, 9))}</div></div>`).join("") + `</div>`)
+  }
+  if (i === 0) p.push(`<div class="date">${esc(date)}</div>`)
+  p.push(`<div class="pg">${String(i + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}</div>`)
+  return p.join("\n    ")
+}
+
+function renderValueDeck(slides: VSlide[], voice: string, docTitle: string): string {
+  const date = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+  const body = slides.map((s, i) =>
+    `<div class="slide ${s.tone}" data-slide="${i}" data-voice="${esc(voice)}" ` +
+    `data-voiceover="${esc(s.narration).replace(/\n/g, " ")}">\n    ` +
+    renderValueSlide(s, i, slides.length, date) + `\n</div>`).join("\n\n")
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${esc(docTitle)}</title>
+<style>${VALUE_CSS}</style>
+</head>
+<body>
+
+${body}
+
+<script>
+(function () {
+  var slides = document.querySelectorAll('.slide'); var i = 0;
+  function show(n) { i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (el, idx) { el.classList.toggle('active', idx === i); }); }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ') show(i + 1);
+    if (e.key === 'ArrowLeft') show(i - 1); });
+  function fromHash() { var m = (location.hash.match(/slide=(\\d+)/) || [])[1];
+    show(m == null ? 0 : +m); }
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+})();
+</script>
+</body>
+</html>
+`
+}
+
+/**
+ * THE VALUE GATE. The structural gate below asks "is this a deck at all". This
+ * one asks "is there a value story in it". Eight slides of "Not stated" is a
+ * worse artifact than no deck, and shipping one would train James to ignore the
+ * format. Four of the eight slots must carry something real.
+ */
+const VALUE_MIN_FIELDS = 4
+function valueGate(v: SessionValue): { pass: boolean; filled: number; reason: string } {
+  const slots = [
+    !!(v.headline || v.value), !!v.jtbd, v.improvement.length > 0, !!v.learned,
+    !!v.skill, v.regression.state !== "unverified", !!(v.goal || v.remaining.length), !!v.ask,
+  ]
+  const filled = slots.filter(Boolean).length
+  return filled >= VALUE_MIN_FIELDS
+    ? { pass: true, filled, reason: `${filled}/8 value slots stated` }
+    : { pass: false, filled, reason: `only ${filled}/8 value slots stated (need ${VALUE_MIN_FIELDS}) - the response did not say what it was worth` }
+}
+
+/**
+ * THE NARRATOR. Declared, never inferred - a constant, not a function of the
+ * content, exactly as the Voice Contract requires.
+ *
+ * It is Samantha, 8PO, and deliberately not Rishi and not me. The complaint was
+ * that these decks read as engineering, and 8TO's register IS the engineering
+ * register in this house; James has heard Rishi on every merge deck today, so
+ * the change of voice is itself the signal that this is a different kind of
+ * report. 8PO owns the content model these slides are built from, so the words
+ * are hers and the voice should be too. And 8DO narrating a deck 8DO designed
+ * would make the deck an object about its own design.
+ *
+ * The officer who did the WORK still appears, on screen, in the record strip.
+ */
+const VALUE_NARRATOR: Officer = "Samantha"
+
+// ------------------------------------------------------------------ gate
+export interface Verdict { pass: boolean; reason: string; slides: number; chars: number; signals: string[] }
+
+/**
+ * THE GATE. Chosen by measuring every turn-final response this machine produced
+ * on 9 August 2026: 600 unique responses across ~20 sessions, median 1025 chars.
+ *
+ *   no gate                                        600 decks/day  (absurd)
+ *   >=1200 chars + any structure                   264 decks/day  (noise)
+ *   >=2500 chars + strong structure                 25 decks/day  (this gate)
+ *   + the hook's rate policy on top                  6 decks/day  (shippable)
+ *
+ * The floor is deliberately above the point where a Telegram message would do
+ * the job. A response under 2500 characters is a message, not a deck. A
+ * response with two headings and no numbered points has no acts to cut on.
+ * A one-line reply cannot reach any of these and never will.
+ */
+/**
+ * Revised 2026-08-09 after the gate refused a Phase 1 milestone report.
+ *
+ * Two blind spots, both mine rather than the gate's:
+ *   - House style leads a section with a BOLD PHRASE, not a markdown heading.
+ *     Counting only `#` scored that report at zero structure.
+ *   - A status table is structure too. It is often the densest part.
+ *
+ * The floor moved 2500 -> 1800 because a milestone written tightly lands
+ * around 1900 chars, and compressing an eleven-PR merge into one screen is
+ * good writing, not a reason to withhold the deck. The hook's rate policy
+ * (1 per 25 min, 6 per day) remains the real ceiling on volume.
+ */
+const MIN_CHARS = 1800
+const MIN_CONTENT_SLIDES = 6
+
+function gate(src: string, slides: Slide[], mode: "extractive" | "value" = "extractive"): Verdict {
+  const chars = src.trim().length
+  const signals: string[] = []
+  const signoff = /^\s*SIGN-OFF:/m.test(src) || /^\s{2,}VOICE:\s*say/m.test(src)
+  const numbered = (src.match(/^\s*(?:\d+[.)]|\*\*\d+[.)])\s+\S/gm) || []).length
+  const heads = (src.match(/^#{1,3}\s+\S/gm) || []).length
+  const boldLeads = (src.match(/^\*\*[^*\n]{3,90}\*\*/gm) || []).length
+  const tables = (src.match(/^\|.+\|$/gm) || []).length >= 3 ? 1 : 0
+  if (signoff) signals.push("sign-off")
+  if (numbered) signals.push(`${numbered} numbered points`)
+  if (heads) signals.push(`${heads} headings`)
+  if (boldLeads) signals.push(`${boldLeads} bold leads`)
+  if (tables) signals.push("table")
+  const contentSlides = slides.filter((s) => !s.big).length
+
+  const structure = heads + boldLeads + tables
+  const strong = structure >= 3 || numbered >= 5 || (signoff && structure >= 2)
+  const bail = (reason: string): Verdict => ({ pass: false, reason, slides: slides.length, chars, signals })
+
+  if (chars < MIN_CHARS) return bail(`too short (${chars} < ${MIN_CHARS} chars) - a message, not a deck`)
+  if (!strong) return bail(`weak structure (${heads} headings, ${boldLeads} bold leads, ${numbered} numbered, sign-off=${signoff}) - nothing to cut acts on`)
+  // The slide-count floor is an extractive concern. The value spine is always
+  // eight slides, so counting the extractive build there would reject a deck on
+  // the shape of a renderer it is not using. The value gate is the real floor.
+  if (mode === "extractive" && contentSlides < MIN_CONTENT_SLIDES) {
+    return bail(`only ${contentSlides} content slides (need ${MIN_CONTENT_SLIDES})`)
+  }
+  return { pass: true, reason: `${signals.join(", ")}; ${slides.length} slides`, slides: slides.length, chars, signals }
+}
+
+// -------------------------------------------------------------- delivery
+/**
+ * ~/.claude/.env WINS over the ambient shell environment.
+ *
+ * Measured 2026-08-09: this machine's shell exports a TELEGRAM_BOT_TOKEN that
+ * differs from the one in ~/.claude/.env (same chat id). Preferring the
+ * environment sent the first real deck through the wrong bot, which failed
+ * silently and fell back to a plain document. send-telegram-document has
+ * always had it right - it does `set -a; . ~/.claude/.env`, so the file wins.
+ * The file is the declared credential; the environment is drift.
+ * Literal fallbacks remain banned.
+ */
+function readEnvVar(name: string): string | null {
+  try {
+    const env = readFileSync(ENV_FILE, "utf-8")
+    const m = env.match(new RegExp(`^${name}=(.*)$`, "m"))
+    if (m && m[1].trim()) return m[1].trim().replace(/^["']|["']$/g, "")
+  } catch { /* no env file - fall through to the environment */ }
+  return process.env[name] || null
+}
+
+const QUIET_START = 21, QUIET_END = 8.5
+function inQuietHours(now: Date = new Date()): boolean {
+  const h = now.getHours() + now.getMinutes() / 60
+  return h >= QUIET_START || h < QUIET_END
+}
+
+/**
+ * Telegram sendVideo so it plays inline with a thumbnail. James only ever
+ * receives this on his own chat id from ~/.claude/.env - there is no
+ * recipient parameter and no other target anywhere in this file.
+ */
+async function deliver(mp4: string, caption: string, quiet: boolean): Promise<string> {
+  // Flow mode (opt-in breakpoint deferral, Resonant Flow Wave 1): when
+  // ~/.8gent/flow/mode is "on", non-urgent decks queue to ~/.8gent/flow/queue
+  // and land with the next digest instead of pinging mid-hyperfocus.
+  // flow-mode maybe-defer COPIES the mp4 into the queue and exits 0 only when
+  // safely queued; Blocked/Failed captions and any error exit 1 -> we deliver
+  // normally. Classification lives in flow-mode (single source, no mirror).
+  try {
+    const flowBin = join(HOME, ".claude/bin/flow-mode")
+    if (!process.env.FLOW_BYPASS && existsSync(flowBin) &&
+        readFileSync(join(HOME, ".8gent/flow/mode"), "utf-8").trim() === "on") {
+      const fr = spawnSync(flowBin, ["maybe-defer", "--video", mp4, "--body", caption], { encoding: "utf-8" })
+      if (fr.status === 0) return "deferred to flow queue"
+    }
+  } catch { /* no mode file or flow-mode error -> flow off, deliver normally */ }
+  const token = readEnvVar("TELEGRAM_BOT_TOKEN")
+  const chatId = readEnvVar("TELEGRAM_CHAT_ID")
+  if (!token || !chatId) return "no credentials, not sent"
+  let why = ""
+  try {
+    const form = new FormData()
+    form.append("chat_id", chatId)
+    form.append("caption", caption)
+    form.append("supports_streaming", "true")
+    if (quiet) form.append("disable_notification", "true")
+    form.append("video", new Blob([readFileSync(mp4)], { type: "video/mp4" }), mp4.split("/").pop()!)
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendVideo`, { method: "POST", body: form })
+    const j: any = await r.json()
+    if (j?.ok) return quiet ? "sent as video (silent, quiet hours)" : "sent as video"
+    why = `sendVideo ${r.status}: ${j?.description || "unknown"}`
+  } catch (e: any) {
+    why = `sendVideo threw: ${e?.message || e}`
+  }
+  // Never swallow the reason - a silent fallback is how the wrong-token bug hid.
+  log(`deliver fallback: ${why}`)
+  const r = spawnSync(SEND_DOC, [mp4, caption], { encoding: "utf-8" })
+  return r.status === 0 ? `sent as document (${why})` : `send failed: ${why}; ${(r.stderr || "").trim()}`
+}
+
+function log(msg: string) {
+  try { appendFileSync(LOG, `${new Date().toISOString()} ${msg}\n`) } catch { /* non-fatal */ }
+}
+
+// ------------------------------------------------------------------ main
+function deriveTitle(src: string, completed: string | null): string {
+  const h1 = src.match(/^#\s+(.+)$/m)
+  if (h1) return h1[1].trim().replace(/[*`]/g, "")
+  if (completed) {
+    const first = completed.split(/(?<=[.!?])\s/)[0]
+    if (first && first.length > 8) return clip(first.replace(/[*`]/g, ""), 72)
+  }
+  const h2 = src.match(/^##\s+(.+)$/m)
+  if (h2) return h2[1].trim().replace(/[*`]/g, "")
+  return "Session report"
+}
+
+function extractCompleted(src: string): string | null {
+  const m = src.match(/🎯\s*COMPLETED[:\s]*(.+?)(?:\n\n|$)/is)
+  return m ? m[1].trim().replace(/\s+/g, " ").slice(0, 300) : null
+}
+
+const slug = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 42) || "response"
+
+// -------------------------------------------------------------- self test
+function selfTest(): number {
+  let fail = 0
+  const check = (name: string, got: unknown, want: unknown) => {
+    const ok = String(got) === String(want)
+    if (!ok) fail++
+    console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok ? "" : `\n        got:  ${got}\n        want: ${want}`}`)
+  }
+
+  console.log("\n[1] Narration never reads symbols, paths or markdown aloud")
+  check("arrow", speakable("build -> deploy"), "build to deploy.")
+  check("issue number", speakable("PR #551 is open"), "PR number 551 is open.")
+  check("em dash banned", speakable("It works — mostly"), "It works, mostly.")
+  check("path collapses", speakable("see /Users/alex/.claude/bin/response-to-deck now"),
+    "see response to deck now.")
+  check("bold markers gone", speakable("**Done.** All `tests` pass"), "Done. All tests pass.")
+  check("percent", speakable("49% of every turn"), "49 percent of every turn.")
+  check("url dropped", speakable("live at https://8gi.org/x today"), "live at today.")
+  check("trailing colon", speakable("From the commits:"), "From the commits.")
+
+  console.log("\n[2] No em dash reaches a slide")
+  check("inline strips em dash", inline("a — b"), "a - b")
+  check("truncation leaks nothing", inline(clip("**unscoped triage loop that runs long", 20)), "unscoped triage…")
+
+  console.log("\n[3] Quiet hours 21:00-08:30")
+  const at = (h: number, m = 0) => { const d = new Date(); d.setHours(h, m, 0, 0); return d }
+  check("20:59 loud", inQuietHours(at(20, 59)), false)
+  check("21:00 quiet", inQuietHours(at(21, 0)), true)
+  check("03:00 quiet", inQuietHours(at(3, 0)), true)
+  check("08:29 quiet", inQuietHours(at(8, 29)), true)
+  check("08:30 loud", inQuietHours(at(8, 30)), false)
+
+  console.log("\n[4] The gate rejects anything that is really a message")
+  const verdictFor = (s: string) => gate(s, buildSlides(parseMarkdown(s), "t", null))
+  check("one-liner", verdictFor("Done.").pass, false)
+  check("short sign-off", verdictFor("Shipped it.\n\nSIGN-OFF:\n  VOICE: say -v Rishi \"x\"\n  COMMIT: abc").pass, false)
+  check("long but shapeless", verdictFor("A sentence with no structure at all. ".repeat(120)).pass, false)
+  const body = "Something measured and specific happened here, with a number attached, " +
+    "and a consequence that changes what happens next for the person reading it. "
+  const section = (i: number) => `## Section ${i}\n\n**Point ${i}** ${body.repeat(3)}\n`
+  const rich = "# Title\n\nOpening paragraph with real substance in it.\n\n" +
+    [1, 2, 3, 4, 5, 6].map(section).join("\n")
+  check("structured and long", verdictFor(rich).pass, true)
+  // Six sections clear the floor; four do not, even when long enough. The
+  // floor is deliberate: a five-slide deck is a message with three minutes
+  // of rendering overhead bolted on.
+  const thin = "# Title\n\nOpening paragraph.\n\n" +
+    [1, 2, 3, 4].map((i) => `## Section ${i}\n\n**Point ${i}** ${body.repeat(6)}\n`).join("\n")
+  check("thin structure, still long", verdictFor(thin).pass, false)
+
+  console.log("\n[5] Officer voices stay distinct and installed")
+  const styles = new Set(Object.values(DECK_VOICE_BY_OFFICER))
+  check("8 distinct deck voices", styles.size, 8)
+  const have = spawnSync("say", ["-v", "?"], { encoding: "utf-8" }).stdout || ""
+  const installed = new Set(have.split("\n").map((l) => l.trim().split(/\s+/)[0]).filter(Boolean))
+  for (const [off, v] of Object.entries(DECK_VOICE_BY_OFFICER)) check(`${off} -> ${v} installed`, installed.has(v), true)
+  check("declared officer wins", pickOfficer("VOICE: say -v Moira \"x\""), "Moira")
+  check("no declaration -> narrator", pickOfficer("no voice line here"), "James")
+
+  console.log("\n[6] Value deck: the spine is fixed and the caps are enforced, not trusted")
+  const fat = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).join(" ") + "."
+  const overfed: SessionValue = normaliseValue({
+    headline: fat(40), value: fat(60), jtbd: fat(60), skill: fat(60), learned: fat(60),
+    regression: { state: "found", note: fat(60) },
+    improvement: [1, 2, 3, 4, 5, 6].map((i) => ({ metric: fat(20), before: `${i}`, after: `${i * 2}` })),
+    goal: fat(60), remaining: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ text: fat(30), done: false })),
+    evidence: [1, 2, 3, 4, 5].map((i) => ({ label: `E${i}`, value: fat(20) })),
+    ask: fat(60),
+  })
+  const fatSpine = buildValueSpine(overfed, "Samantha", "Rishi")
+  check("always exactly 8 slides", fatSpine.length, 8)
+  check("headline <= 15 words, ask <= 20", fatSpine.every((s) =>
+    words(s.headline) <= (s.kind === "ask" ? CAP.askWords : CAP.headlineWords)), true)
+  check("<= 3 support lines", fatSpine.every((s) => s.lines.length <= CAP.lines), true)
+  check("the ask is never cut into an instruction",
+    buildValueSpine(normaliseValue({ ask: "Restart the bridge to make it live, or leave it until you are done talking to it?" }),
+      "Samantha", "James")[7].headline,
+    "Restart the bridge to make it live, or leave it until you are done talking to it?")
+  check("<= 42 words on a slide", fatSpine.every((s) =>
+    words(s.headline) + s.lines.reduce((a, l) => a + words(l.text), 0) <= CAP.slideWords + CAP.askWords), true)
+  check("<= 46 words of narration", fatSpine.every((s) => words(s.narration) <= CAP.narrationWords), true)
+  check("<= 3 stats", (fatSpine[2].stats || []).length <= CAP.stats, true)
+  check("<= 4 ladder rows", (fatSpine[6].rows || []).length <= CAP.ladderRows, true)
+  const fatHtml = renderValueDeck(fatSpine, "Samantha", "t")
+  check("no ellipsis reaches a value slide", /…/.test(fatHtml), false)
+  check("no em dash reaches a value slide", /[—–]/.test(fatHtml), false)
+  check("no banned hue 270-350 in the palette", /#(9|A|B|C|D)[0-9A-F]{1}[0-9A-F]{2}(F|E|D)[0-9A-F]/i.test(VALUE_CSS) &&
+    /purple|violet|magenta|#8B5CF6|#A855F7|#D946EF/i.test(VALUE_CSS), false)
+
+  console.log("\n[7] Value deck: an empty run renders honestly, never a guess")
+  const empty = buildValueSpine(normaliseValue({}), "Samantha", "James")
+  check("still 8 slides", empty.length, 8)
+  check("no field invented", empty.every((s) => !/\b(probably|likely|approximately|roughly)\b/i.test(
+    s.headline + s.lines.map((l) => l.text).join(" ") + s.narration)), true)
+  check("regression defaults to NOT VERIFIED", empty[5].headline, "NOT VERIFIED")
+  check("unverified is amber, not green", empty[5].tone, "watch")
+  check("no measurement says so", empty[2].headline, "Not measured")
+  check("empty run fails the value gate", valueGate(normaliseValue({})).pass, false)
+  check("colour is never the only signal", renderValueDeck(empty, "Samantha", "t").includes("NOT VERIFIED"), true)
+
+  console.log("\n[8] Value deck: semantic colour, and the narrator is declared")
+  const good = buildValueSpine(normaliseValue({ regression: { state: "none", note: null } }), "Samantha", "James")
+  check("checked no-regression is green", good[5].tone, "good")
+  const bad = buildValueSpine(normaliseValue({ regression: { state: "found", note: "Helm pane lost its grouping." } }), "Samantha", "James")
+  check("a real regression is red, never green", bad[5].tone, "alert")
+  check("alarming slide cannot render green", bad[5].tone === "good", false)
+  check("narrator is a constant, not inferred", VALUE_NARRATOR, "Samantha")
+  check("narrator voice is installed", installed.has(DECK_VOICE_BY_OFFICER[VALUE_NARRATOR]), true)
+  check("acts are 1,1,1,2,2,2,3,3", fatSpine.map((s) => s.act).join(""), "11122233")
+  check("the last slide is the ask", fatSpine[7].kind, "ask")
+
+  console.log("\n[9] Fallback content model lifts verbatim and never computes")
+  const fb = fallbackValue("Latency went from 820ms to 310ms in the router.\n\n**Learned:** the cap was a guess.\n")
+  check("lifts a stated before/after", `${fb.improvement[0]?.before} to ${fb.improvement[0]?.after}`, "820ms to 310ms")
+  check("lifts a labelled lesson", fb.learned, "the cap was a guess.")
+  check("does not invent a skill", fb.skill, null)
+  check("passing tests never imply no regression",
+    fallbackValue("All 263 tests pass and the build is green.").regression.state, "unverified")
+  check("an explicit statement does", fallbackValue("No regressions: the old path is untouched.").regression.state, "none")
+
+  console.log(fail === 0 ? "\nRESPONSE-TO-DECK: PASS - all checks green.\n" : `\nRESPONSE-TO-DECK: FAIL - ${fail} check(s).\n`)
+  return fail
+}
+
+async function main() {
+  const argv = process.argv.slice(2)
+  const flag = (n: string) => argv.includes(n)
+  const val = (n: string) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined }
+
+  if (flag("--selftest")) process.exit(selfTest() === 0 ? 0 : 1)
+
+  let src = ""
+  const file = val("--file")
+  if (file) src = readFileSync(file, "utf-8")
+  else src = await Bun.stdin.text()
+  if (!src.trim()) { console.error("response-to-deck: empty input"); process.exit(2) }
+
+  const completed = extractCompleted(src)
+  const docTitle = val("--title") || deriveTitle(src, completed)
+  const officer = pickOfficer(src)
+  const blocks = parseMarkdown(src)
+  const slides = buildSlides(blocks, docTitle, completed)
+
+  // The value deck is the default. `--extractive` restores the old renderer,
+  // which is still the right tool when the response IS the artifact (a plan, a
+  // validation record) rather than a report of what a run was worth.
+  const useValue = !flag("--extractive")
+  const verdict = gate(src, slides, useValue ? "value" : "extractive")
+  const nOverride = val("--narrator")
+  const narrator: Officer = (nOverride && nOverride in DECK_VOICE_BY_OFFICER)
+    ? nOverride as Officer : VALUE_NARRATOR
+  const loaded = useValue ? await loadSessionValue(src) : null
+  const vGate = loaded ? valueGate(loaded.v) : null
+  const vSlides = loaded ? buildValueSpine(loaded.v, narrator === "James" ? "AI James" : narrator, officer) : null
+
+  if (flag("--gate-only")) {
+    console.log(JSON.stringify(vGate ? { ...verdict, value: vGate, source: loaded!.from } : verdict))
+    process.exit(verdict.pass && (!vGate || vGate.pass) ? 0 : 1)
+  }
+  if (flag("--plan")) {
+    console.log(JSON.stringify(vSlides
+      ? { mode: "value", title: docTitle, narrator, workedBy: officer, verdict, value: vGate,
+          source: loaded!.from, model: loaded!.v,
+          slides: vSlides.map((s, i) => ({ i, kind: s.kind, act: s.act, kicker: s.kicker,
+            headline: s.headline, tone: s.tone, lines: s.lines.map((l) => l.text),
+            stats: s.stats, rows: s.rows, record: s.record, narration: s.narration })) }
+      : { mode: "extractive", title: docTitle, officer, verdict, slides: slides.map((s, i) => ({
+          i, kicker: s.kicker, title: s.title, lede: s.lede ? clip(s.lede, 60) : undefined,
+          points: s.points.length, bullets: s.bullets.length, code: !!s.code, table: !!s.table,
+          manifest: !!s.manifest, narration: s.narration })) }, null, 2))
+    process.exit(0)
+  }
+  if (!verdict.pass && !flag("--force")) {
+    console.error(`response-to-deck: gate failed - ${verdict.reason}`)
+    process.exit(1)
+  }
+  if (vGate && !vGate.pass && !flag("--force")) {
+    console.error(`response-to-deck: value gate failed - ${vGate.reason}`)
+    process.exit(1)
+  }
+
+  mkdirSync(CREATIVE, { recursive: true })
+  const stamp = new Date().toISOString().slice(0, 10)
+  const name = val("--out") || `auto-${slug(docTitle)}-${stamp}-${Date.now().toString(36).slice(-4)}`
+  const htmlPath = join(CREATIVE, `${name}.html`)
+  writeFileSync(htmlPath, vSlides
+    ? renderValueDeck(vSlides, DECK_VOICE_BY_OFFICER[narrator], docTitle)
+    : renderDeck(slides, DECK_VOICE_BY_OFFICER[officer], docTitle, officer))
+  log(vSlides
+    ? `render ${name} mode=value slides=${vSlides.length} narrator=${narrator} workedBy=${officer} value="${vGate!.reason}" src=${loaded!.from}`
+    : `render ${name} mode=extractive slides=${slides.length} officer=${officer} gate="${verdict.reason}"`)
+  if (flag("--html-only")) { console.log(htmlPath); process.exit(0) }
+
+  const r = spawnSync("python3", [DECK2VIDEO, htmlPath, "--out", name, "--tts", "supertonic"],
+    { encoding: "utf-8", timeout: 15 * 60 * 1000 })
+  const mp4 = join(CREATIVE, `${name}.mp4`)
+  if (r.status !== 0 || !existsSync(mp4)) {
+    log(`FAIL ${name}: ${(r.stderr || "").slice(-400)}`)
+    console.error(`response-to-deck: render failed\n${r.stderr || ""}`)
+    process.exit(3)
+  }
+  console.log(mp4)
+
+  // Put it on his screen. Adopted 17 Aug 2026 at James's request: "as default
+  // in the stop hook just always open up the summary and what's next video".
+  //
+  // Telegram delivery is the away channel and the durable record; it is not
+  // the at-machine one. A deck that only ever landed in a chat he had to go
+  // find is a deck he did not watch, which defeats the entire reason this
+  // renderer exists. The sign-off protocol already treats an unopened file
+  // deliverable as invalid, so this closes that by construction rather than by
+  // remembering.
+  //
+  // `--no-open` exists for batch and CI runs that must not steal focus.
+  if (!flag("--no-open")) {
+    const o = spawnSync("open", [mp4], { encoding: "utf-8" })
+    log(o.status === 0 ? `open ${name}: ok` : `open ${name}: failed ${(o.stderr || "").slice(-200)}`)
+  }
+
+  if (!flag("--no-send")) {
+    const quiet = inQuietHours()
+    const caption = `${docTitle} - ${(vSlides ?? slides).length} slides, narrated`
+    const status = await deliver(mp4, caption, quiet)
+    log(`deliver ${name}: ${status}`)
+    console.log(status)
+  }
+}
+
+if (import.meta.main) main()
