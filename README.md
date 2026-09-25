@@ -1,6 +1,6 @@
 # 8GI Skills
 
-**What this is:** seven markdown capability files for coding-agent harnesses. Each file is a self-contained set of instructions that changes how an agent behaves for the rest of a session.
+**What this is:** eight markdown capability files for coding-agent harnesses. Each file is a self-contained set of instructions that changes how an agent behaves for the rest of a session.
 
 **Who it is for:** developers running an agent harness that loads skills from a directory as markdown files with YAML frontmatter.
 
@@ -21,8 +21,9 @@ Built by the [8GI Foundation](https://github.com/8gi-foundation).
 | [`github-workflow.md`](./github-workflow.md) | loaded by the agent | Issue-first GitHub loop: issues, branch naming, CI, PR template, browser testing, preview-deploy validation |
 | [`voice-signoff.md`](./voice-signoff.md) | loaded by the agent | Structured sign-off block at the end of a task, plus a spoken summary |
 | [`context-window.md`](./context-window.md) | loaded by the agent | How to read the context indicator, what consumes token budget, and how to keep a long session usable |
+| [`plan-ledger-tasks-yylo.md`](./plan-ledger-tasks-yylo.md) | loaded by the agent | Turns a feature request into a durable plan: one concise Product Development Requirement, then implementation-sized YYLO Ledger tasks with acceptance criteria and dependencies |
 
-The first four carry `user_invocable: true` in their frontmatter, so a harness that supports slash invocation exposes them directly. The other three carry a `description` only and are meant to be pulled in by the agent when the described situation comes up.
+The first four carry `user_invocable: true` in their frontmatter, so a harness that supports slash invocation exposes them directly. The other four carry a `description` only and are meant to be pulled in by the agent when the described situation comes up.
 
 The two boardrooms are different tools. `/boardroom` builds a panel around *your* weaknesses, diagnosed from your own repo history. `/billiondollarboardroom` convenes a fixed panel of eight commercial operators and is aimed at pricing, offers, sales and growth rather than engineering judgement.
 
@@ -40,7 +41,7 @@ cd Skills
 
 SKILLS_DIR="$HOME/.agents/skills"   # change this to your harness's skills directory
 
-for skill in no-bs boardroom billiondollarboardroom voice github-workflow voice-signoff context-window; do
+for skill in no-bs boardroom billiondollarboardroom voice github-workflow voice-signoff context-window plan-ledger-tasks-yylo; do
   mkdir -p "$SKILLS_DIR/$skill"
   cp "$skill.md" "$SKILLS_DIR/$skill/SKILL.md"
 done
