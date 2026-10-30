@@ -23,7 +23,7 @@
  *
  *   COMPUTED fields - improvement, regression, goal, remaining.
  *     Only the machine can know these. They come from the append-only ledger at
- *     ~/.8gent/value-ledger.jsonl and from docs/8GI-REORG-SPRINT.md on
+ *     the value ledger and from docs/8GI-REORG-SPRINT.md on
  *     origin/main. There is deliberately NO `VALUE:` key for any of them, so a
  *     session is structurally incapable of claiming "no regression" or
  *     asserting an improvement it did not make.
